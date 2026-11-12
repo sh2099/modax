@@ -24,13 +24,16 @@ import numpy as np
 
 discoeb_cpu.install()
 
-import jax
-import jax.numpy as jnp
-import rodas5p_cpu
-from discoeb import perturbations as P
-from discoeb.component import Component, Model
-from discoeb.eb_model import perturbation_model
-from run_pk import COSMOLOGIES
+import jax  # noqa: E402
+import jax.numpy as jnp  # noqa: E402
+from discoeb import perturbations as P  # noqa: E402
+from discoeb.component import Component, Model  # noqa: E402
+from discoeb.eb_model import perturbation_model  # noqa: E402
+from jacobian_tools import difference_jacobian  # noqa: E402
+from run_pk import COSMOLOGIES  # noqa: E402
+
+from modax._numba_common import as_cuda_device  # noqa: E402
+from modax.rodas5P import solve  # noqa: E402
 
 
 class JaxThermalHistory(Component):
@@ -97,17 +100,23 @@ def check(name: str) -> bool:
     tau_save = np.geomspace(P.TAU_START, float(prepared.tau0[0]), 12)
     params, y0, t_span, _, _ = P._pack_batch(prepared, k, tau_save)
 
-    coloured = rodas5p_cpu.make_solver(
-        prepared.ode_fn,
-        nvar,
-        P.N_PARAM,
-        sparsity=prepared.sparsity,
-        tf_index=P.IX_TAU_END,
+    coloured = difference_jacobian(prepared.ode_fn, nvar, prepared.sparsity)
+    dense = difference_jacobian(prepared.ode_fn, nvar)
+    rhs = as_cuda_device(prepared.ode_fn)
+    hist = np.asarray(
+        solve(
+            prepared.ode_fn,
+            y0,
+            t_span,
+            params,
+            sparsity=prepared.sparsity,
+            rtol=1e-6,
+            atol=1e-6,
+            first_step=1e-2,
+            tf_index=P.IX_TAU_END,
+            lu_precision="fp64",
+        )  # fmt: skip
     )
-    dense = rodas5p_cpu.make_solver(
-        prepared.ode_fn, nvar, P.N_PARAM, tf_index=P.IX_TAU_END
-    )
-    hist, _ = coloured.solve(y0, t_span, params, rtol=1e-6, atol=1e-6, first_step=1e-2)
 
     f_jax = jax.jit(jax_rhs(layout, prepared.stacked))
     j_jax = jax.jit(jax.jacfwd(jax_rhs(layout, prepared.stacked), argnums=0))
@@ -123,8 +132,9 @@ def check(name: str) -> bool:
             f_ref = np.asarray(f_jax(y, tau, p))
             j_ref = np.asarray(j_jax(y, tau, p))
             dt_ref = np.asarray(dt_jax(y, tau, p))
-            j_fd, dt_fd, f_nb = coloured.jacobian(y, tau, p, fd_floor=1.0, t_scale=0.0)
-            j_dense, _, _ = dense.jacobian(y, tau, p, fd_floor=1.0, t_scale=0.0)
+            j_fd, dt_fd = coloured(y, tau, p)
+            j_dense, _ = dense(y, tau, p)
+            f_nb = np.array(rhs(y, tau, p))
             scale = np.abs(f_ref).max()
             worst["rhs"] = max(worst["rhs"], np.abs(f_nb - f_ref).max() / scale)
             row_scale = np.abs(j_ref).max(axis=1, keepdims=True) + 1e-300

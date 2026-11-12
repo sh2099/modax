@@ -1,4 +1,4 @@
-"""The CPU prototype against modax on CUDA, on identical inputs.
+"""modax's CPU target against modax on CUDA, on identical inputs.
 
 Takes the ``.npz`` written by ``dump_gpu_reference.py`` on the NVIDIA machine::
 
@@ -25,9 +25,10 @@ import numpy as np
 
 discoeb_cpu.install()
 
-import rodas5p_cpu
-from discoeb import perturbations as P
-from run_pk import COSMOLOGIES
+from discoeb import perturbations as P  # noqa: E402
+from run_pk import COSMOLOGIES  # noqa: E402
+
+from modax.rodas5P import solve  # noqa: E402
 
 
 def robertson(y, t, p):
@@ -42,6 +43,12 @@ def prothero_robinson(y, t, p):
     return (-p[0] * (y[0] - math.sin(t)) + math.cos(t),)
 
 
+def cpu_solve(ode_fn, y0, t_span, params, **settings):
+    """modax's Rodas5P on the CPU target: ``(history, step counters)`` as host arrays."""
+    hist, stats = solve(ode_fn, y0, t_span, params, return_stats=True, **settings)
+    return np.asarray(hist), {key: np.asarray(value) for key, value in stats.items()}
+
+
 def relative(ours, theirs, floor):
     return float(np.max(np.abs(ours - theirs) / (np.abs(theirs) + floor)))
 
@@ -52,22 +59,21 @@ def main(path: str) -> None:
 
     print("\n1. Solver only")
     for lu in ("fp32", "fp64"):
-        solver = rodas5p_cpu.make_solver(robertson, 3, 3, lu_precision=lu)
-        hist, stats = solver.solve(
-            np.array([1.0, 0.0, 0.0]), gpu["robertson_times"], np.array([0.04, 1e4, 3e7]),
-            rtol=1e-8, atol=1e-10,
+        hist, stats = cpu_solve(
+            robertson, np.array([1.0, 0.0, 0.0]), gpu["robertson_times"],
+            np.array([0.04, 1e4, 3e7]), rtol=1e-8, atol=1e-10, lu_precision=lu,
         )  # fmt: skip
         print(
             f"   Robertson, {lu} LU: max difference {relative(hist, gpu[f'robertson_{lu}_hist'], 1e-10):.2e}; "
             f"accepted steps CPU {int(stats['accepted_steps'][0])} / GPU {int(gpu[f'robertson_{lu}_accepted'][0])}, "
             f"rejected {int(stats['rejected_steps'][0])} / {int(gpu[f'robertson_{lu}_rejected'][0])}"
         )
-    solver = rodas5p_cpu.make_solver(prothero_robinson, 1, 1)
     dense = gpu["pr_times"]
     for tol in (1e-4, 1e-6, 1e-8):
-        hist, stats = solver.solve(
-            np.zeros(1), dense, np.array([1.0e4]), rtol=tol, atol=tol
-        )
+        hist, stats = cpu_solve(
+            prothero_robinson, np.zeros(1), dense, np.array([1.0e4]),
+            rtol=tol, atol=tol, lu_precision="fp64",
+        )  # fmt: skip
         theirs = gpu[f"pr_hist_{tol:.0e}"]
         print(
             f"   stiff forced problem, rtol={tol:.0e}: dense-output error CPU "
@@ -96,13 +102,11 @@ def main(path: str) -> None:
             gpu[f"{name}_t_span"],
         )
         for lu in ("fp32", "fp64"):
-            solver = rodas5p_cpu.make_solver(
-                rhs, layout.nvar, P.N_PARAM, sparsity=gpu[f"{name}_sparsity"],
-                lu_precision=lu, tf_index=P.IX_TAU_END, pcoeff=0.3, icoeff=0.4,
-            )  # fmt: skip
-            hist, stats = solver.solve(
-                y0, t_span, params, rtol=P.PERTURB_RTOL, atol=P.PERTURB_ATOL,
+            hist, stats = cpu_solve(
+                rhs, y0, t_span, params, sparsity=gpu[f"{name}_sparsity"],
+                rtol=P.PERTURB_RTOL, atol=P.PERTURB_ATOL,
                 first_step=P.PERTURB_FIRST_STEP, max_steps=P.PERTURB_MAX_STEPS,
+                pcoeff=0.3, icoeff=0.4, tf_index=P.IX_TAU_END, lu_precision=lu,
             )  # fmt: skip
             final, theirs = hist[:, -1, :], gpu[f"{name}_{lu}_final"]
             ix_c, ix_b = layout.ix_clxc, layout.ix_clxb

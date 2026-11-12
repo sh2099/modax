@@ -1,4 +1,4 @@
-"""Record what modax on CUDA produces, for comparison with the CPU prototype.
+"""Record what modax on CUDA produces, for comparison with the CPU target.
 
 Run on the NVIDIA machine, in the stock DISCO-EB v2 environment (``uv sync``
 in the DISCO-EB checkout, then from that checkout)::
@@ -28,7 +28,7 @@ import jax
 
 jax.config.update("jax_enable_x64", True)
 
-import numpy as np
+import numpy as np  # noqa: E402
 
 REFERENCE_COSMOLOGY = {
     "Omegam": (0.02238280 + 0.1201075) / 0.6732117**2,

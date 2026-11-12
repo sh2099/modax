@@ -1,8 +1,10 @@
-"""Make an unedited DISCO-EB v2 checkout solve on the CPU prototype.
+"""Make an unedited DISCO-EB v2 checkout solve on modax's CPU target.
 
-``install()`` puts the CUDA stand-in (:mod:`cuda_shim`) and the solver
-stand-in (:mod:`modax_stub`) in place and enables float64 in JAX. Call it
-before importing anything from ``discoeb``.
+DISCO-EB names ``numba_cuda_mlir`` itself for its device functions and table
+buffers; ``install()`` puts the stand-in of :mod:`cuda_shim` under that name
+and enables float64 in JAX. modax, seeing no real numba-CUDA, compiles for
+the CPU (``modax._target``). Call it before importing anything from
+``discoeb``.
 """
 
 from __future__ import annotations
@@ -17,7 +19,10 @@ def install() -> None:
     jax.config.update("jax_enable_x64", True)
 
     import cuda_shim
-    import modax_stub
 
     cuda_shim.install()
-    modax_stub.install()
+
+    from modax import _target
+
+    if _target.TARGET != "cpu":
+        raise RuntimeError("modax chose the CUDA target; set MODAX_TARGET=cpu")

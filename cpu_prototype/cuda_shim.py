@@ -10,17 +10,18 @@ each a CPU meaning, so the unedited DISCO-EB sources compile with plain numba:
 ``cuda.jit(device=True)``       ``numba.njit``
 ``cuda.local.array(n, dtype)``  ``np.empty(n, dtype)``
 ``cuda.to_device(a)``           a contiguous host array
-``cuda.device_array(s, d)``     ``np.empty(s, d)``
-``cuda.is_cuda_array(a)``       ``False`` (so tables are "uploaded")
+``cuda.device_array(s, d)``     a host buffer read live
+``cuda.is_cuda_array(a)``       whether ``a`` is such a buffer
 ``cuda.synchronize()``          nothing
 ``types.float64``               ``np.float64``
 ==============================  ==========================================
 
-One difference in behaviour matters: numba freezes an array a compiled
-function closes over at compile time, where a CUDA kernel reads a device
-array's contents at launch. A function built against one set of tables must
-therefore be rebuilt for another; DISCO-EB's ``DeviceTableSlot`` (one kernel,
-refilled buffers) does not carry over.
+A CUDA kernel reads a device array's contents at launch; numba freezes an
+ordinary array a compiled function closes over. ``cuda.device_array`` buffers
+are therefore typed so that compiled code reads them live
+(:class:`_HostArray`), which is what lets DISCO-EB's ``DeviceTableSlot`` refill
+one kernel's tables per batch. Arrays made by ``cuda.to_device`` are frozen
+as usual; nothing refills those.
 
 Usage::
 
@@ -36,9 +37,17 @@ import types as _pytypes
 
 import numpy as np
 from numba import njit
+from numba import types as nb_types
+from numba.core import cgutils
+from numba.core.imputils import lower_constant
+from numba.extending import models, register_model, typeof_impl
+from numba.np.numpy_support import from_dtype
+
+# IEEE arithmetic, as on the device: no exception on a division by zero.
+_device = njit(error_model="numpy")
 
 
-@njit
+@_device
 def _local_array(shape, dtype):
     return np.empty(shape, dtype)
 
@@ -46,8 +55,8 @@ def _local_array(shape, dtype):
 def _jit(*args, **options):
     """``cuda.jit``: ``njit``, whatever CUDA options (``device``, ``max_registers``) were given."""
     if args and callable(args[0]) and len(args) == 1 and not options:
-        return njit(args[0])
-    return njit
+        return _device(args[0])
+    return _device
 
 
 def _to_device(array):
@@ -55,30 +64,67 @@ def _to_device(array):
 
 
 class _HostArray(np.ndarray):
-    """A host array with the one device-array method DISCO-EB calls.
+    """A table buffer that compiled code reads live, as a CUDA kernel reads a device array.
 
-    It may be filled once. Compiled CPU code holds a frozen copy of the
-    contents it was compiled against, so refilling the buffer with other data
-    would leave every function built on it silently reading the old tables;
-    that is refused instead.
+    numba freezes an ordinary array a compiled function closes over: the
+    function carries a copy of the contents at compile time. A CUDA kernel
+    instead reads a device array's contents at launch, which DISCO-EB relies
+    on (``DeviceTableSlot``: one kernel, its table buffers refilled per
+    batch). Arrays of this class are typed as :class:`_LiveArrayType`, whose
+    constant is the buffer's address and not its contents, so a refill in
+    place is seen by every function already compiled against the buffer. The
+    buffer must outlive those functions and never be reallocated.
     """
 
-    _filled = False
-
     def copy_to_device(self, source):
-        source = np.asarray(source, dtype=self.dtype)
-        if self._filled and not np.array_equal(self, source, equal_nan=True):
-            raise RuntimeError(
-                "a table buffer was refilled with different data: CPU-compiled code "
-                "froze the first contents, so the functions built on it must be rebuilt "
-                "(discoeb.perturbations.clear_prepared_solve_cache() drops them)"
-            )
         self[...] = source
-        self._filled = True
+
+
+class _LiveArrayType(nb_types.Array):
+    def __init__(self, dtype, ndim, layout):
+        super().__init__(
+            dtype, ndim, layout, name=f"live_array({dtype}, {ndim}d, {layout})"
+        )
+
+    def copy(self, dtype=None, ndim=None, layout=None, readonly=None):
+        # Type inference marks a global array read-only through copy(), which
+        # would otherwise hand back a plain (frozen) array type.
+        return _LiveArrayType(
+            dtype or self.dtype,
+            self.ndim if ndim is None else ndim,
+            layout or self.layout,
+        )
+
+
+register_model(_LiveArrayType)(models.ArrayModel)
+
+
+@typeof_impl.register(_HostArray)
+def _typeof_host_array(value, context):
+    return _LiveArrayType(from_dtype(value.dtype), value.ndim, "C")
+
+
+@lower_constant(_LiveArrayType)
+def _live_array_constant(context, builder, ty, value):
+    array = context.make_array(ty)(context, builder)
+    intp = nb_types.intp
+    context.populate_array(
+        array,
+        data=context.get_constant(intp, value.ctypes.data).inttoptr(array.data.type),
+        shape=cgutils.pack_array(
+            builder, [context.get_constant(intp, n) for n in value.shape]
+        ),
+        strides=cgutils.pack_array(
+            builder, [context.get_constant(intp, n) for n in value.strides]
+        ),
+        itemsize=context.get_constant(intp, value.itemsize),
+        meminfo=None,
+    )
+    return array._getvalue()
 
 
 def _device_array(shape, dtype):
-    return np.empty(shape, dtype).view(_HostArray)
+    return np.zeros(shape, dtype).view(_HostArray)
 
 
 def build() -> _pytypes.ModuleType:
@@ -93,8 +139,9 @@ def build() -> _pytypes.ModuleType:
     cuda.jit = _jit
     cuda.to_device = _to_device
     cuda.device_array = _device_array
-    cuda.is_cuda_array = lambda array: False
-    cuda.is_available = lambda: False
+    cuda.is_cuda_array = lambda array: isinstance(array, _HostArray)
+    # "The device target is usable": what DISCO-EB's tests gate on.
+    cuda.is_available = lambda: True
     cuda.synchronize = lambda: None
     types.float64 = np.float64
     types.float32 = np.float32

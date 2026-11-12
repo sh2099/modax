@@ -1,9 +1,12 @@
-"""P(k) of DISCO-EB v2 on the CPU prototype: accuracy, step counts and timings.
+"""P(k) of DISCO-EB v2 on modax's CPU target: accuracy, step counts and timings.
 
-Runs the unedited ``discoeb.perturbations.solve_matter_power_spectrum_batch``
-(thermal history included) for the flat-LCDM layout (50 variables) and the
-massive-neutrino layout (98 variables), with the CUDA and modax stand-ins of
-:mod:`discoeb_cpu` underneath, and writes ``results/pk_<layout>.json``.
+Solves the flat-LCDM layout (50 variables) and the massive-neutrino layout
+(98 variables) with modax's CPU target, from the unedited DISCO-EB checkout's
+own thermal tables, packed inputs and solver settings, and writes
+``results/pk_<layout>.json``. The launch is made here rather than through
+``solve_matter_power_spectrum_batch`` only so that the LU (sparse or dense,
+float32 or float64) and the thread count can be varied and the step counters
+read; ``run_discoeb_tests.py`` exercises DISCO-EB's own entry points.
 
     PYTHONPATH=..:.:<DISCO-EB>/src .venv/bin/python run_pk.py [flat] [mnu]
 """
@@ -21,9 +24,8 @@ import numpy as np
 
 discoeb_cpu.install()
 
-import modax_stub
-import numba
-from discoeb import perturbations as P
+import numba  # noqa: E402
+from discoeb import perturbations as P  # noqa: E402
 
 REFERENCE_COSMOLOGY = {
     "Omegam": (0.02238280 + 0.1201075) / 0.6732117**2,
@@ -102,31 +104,57 @@ def timed(fn):
 
 
 def run(name: str) -> dict:
+    from modax.rodas5P import solve
+
     cosmology = COSMOLOGIES[name]
-    layout = P._layout_for(P._as_cosmology(cosmology))
-    print(f"== {name}: nvar = {layout.nvar}, {len(K)} modes", flush=True)
-    out: dict = {"layout": name, "nvar": layout.nvar, "k": K.tolist(), "runs": {}}
-
-    def solve(**kwargs):
-        return P.solve_matter_power_spectrum_batch(K, (cosmology,), **kwargs)[0]
-
     n_cores = numba.config.NUMBA_NUM_THREADS
-    modax_stub.DEFAULTS.update(parallel=True, threads=None, lu_precision=None)
-    t_thermo, _ = timed(lambda: P.build_thermo_tables(cosmology))
-    out["thermo_tables_first_call_s"] = t_thermo
+    t_thermo, prepared = timed(lambda: P._prepare_solve((cosmology,)))
+    cosmo, layout = prepared.cosmologies[0], prepared.layout
+    params, y0, t_span, order, k_sorted = P._pack_batch(prepared, K)
+    prepared.bind()
+    print(f"== {name}: nvar = {layout.nvar}, {len(K)} modes", flush=True)
     print(f"   thermal tables (compile + solve): {t_thermo:.1f} s", flush=True)
+    out: dict = {
+        "layout": name,
+        "nvar": layout.nvar,
+        "k": K.tolist(),
+        "thermo_tables_first_call_s": t_thermo,
+        "threads_available": n_cores,
+        "cpu": os.uname().machine,
+        "runs": {},
+    }
 
-    # The configuration DISCO-EB itself launches: fp32 LU, rtol = atol = 1e-4.
-    t_first, pk = timed(solve)
-    stats = {k: v.copy() for k, v in modax_stub.LAST_STATS.items()}
-    order = np.argsort(K, kind="stable")
-    accepted = np.empty(len(K), int)
-    rejected = np.empty(len(K), int)
-    accepted[order] = stats["accepted_steps"]
-    rejected[order] = stats["rejected_steps"]
+    def launch(*, sparse=True, lu="fp32", tol=P.PERTURB_RTOL, threads=None):
+        """DISCO-EB's launch (``perturbations._launch``) with the LU and threads chosen here."""
+        numba.set_num_threads(threads or n_cores)
+        try:
+            hist, stats = solve(
+                prepared.ode_fn, y0, t_span, params,
+                sparsity=prepared.sparsity if sparse else None,
+                rtol=tol, atol=tol, first_step=P.PERTURB_FIRST_STEP,
+                max_steps=P.PERTURB_MAX_STEPS, pcoeff=0.3, icoeff=0.4,
+                tf_index=P.IX_TAU_END, lu_precision=lu, return_stats=True,
+            )  # fmt: skip
+        finally:
+            numba.set_num_threads(n_cores)
+        final = np.asarray(hist)[:, -1, :]
+        densities = P.density_coefficients(cosmo)
+        delta_m = P.total_matter_density_contrast(
+            densities[2], final[:, P.IX_CLXC], densities[3], final[:, P.IX_CLXB]
+        )
+        pk_sorted = P.matter_power_spectrum(
+            k_sorted, delta_m, cosmo.A_s, cosmo.n_s, cosmo.k_pivot
+        )
+        pk = np.empty_like(pk_sorted)
+        pk[order] = pk_sorted
+        return pk, {key: np.asarray(value) for key, value in stats.items()}
+
+    # The configuration DISCO-EB itself launches: sparse fp32 LU, rtol = atol = 1e-4.
+    t_first, (pk, stats) = timed(launch)
+    accepted, rejected = stats["accepted_steps"], stats["rejected_steps"]
     out["first_call_s"] = t_first
     out["pk"] = pk.tolist()
-    out["accepted_steps"] = accepted.tolist()
+    out["accepted_steps"] = accepted.tolist()  # in ascending k
     out["rejected_steps"] = rejected.tolist()
     print(
         f"   first call (compiles the kernel): {t_first:.1f} s; steps per mode "
@@ -135,37 +163,44 @@ def run(name: str) -> dict:
         flush=True,
     )
 
-    for threads in sorted({1, 4, 8, n_cores}):
-        if threads > n_cores:
-            continue
-        modax_stub.DEFAULTS.update(parallel=threads > 1, threads=threads)
-        best = min(timed(solve)[0] for _ in range(3))
-        out["runs"][f"fp32_threads{threads}"] = best
-        print(f"   fp32 LU, {threads:2d} thread(s): {best * 1e3:8.1f} ms", flush=True)
-    modax_stub.DEFAULTS.update(parallel=True, threads=None)
+    for label, kwargs in (
+        ("sparse fp32", {}),
+        ("sparse fp64", {"lu": "fp64"}),
+        ("dense  fp32", {"sparse": False}),
+        ("dense  fp64", {"sparse": False, "lu": "fp64"}),
+    ):
+        launch(**kwargs)  # compile
+        row = {}
+        for threads in sorted({1, n_cores}):
+            row[f"threads{threads}"] = min(
+                timed(
+                    lambda kwargs=kwargs, threads=threads: launch(
+                        threads=threads, **kwargs
+                    )
+                )[0]
+                for _ in range(3)
+            )
+        pk_variant, stats_variant = launch(**kwargs)
+        row["accepted"] = int(stats_variant["accepted_steps"].sum())
+        row["rejected"] = int(stats_variant["rejected_steps"].sum())
+        row["pk_max_rel_vs_default"] = float(np.max(np.abs(pk_variant / pk - 1.0)))
+        out["runs"][label.replace("  ", " ")] = row
+        print(
+            f"   {label} LU: {row['threads1'] * 1e3:8.1f} ms on 1 thread, "
+            f"{row[f'threads{n_cores}'] * 1e3:7.1f} ms on {n_cores}; "
+            f"{row['accepted']} accepted, {row['rejected']} rejected; "
+            f"P(k) within {row['pk_max_rel_vs_default']:.1e} of the default",
+            flush=True,
+        )
 
-    # fp64 LU and tighter tolerances, as accuracy references.
-    modax_stub.DEFAULTS.update(lu_precision="fp64")
-    timed(solve)
-    t64 = min(timed(solve)[0] for _ in range(3))
-    pk64 = solve()
-    steps64 = int(modax_stub.LAST_STATS["accepted_steps"].sum())
-    out["runs"][f"fp64_threads{n_cores}"] = t64
-    out["pk_fp64"] = pk64.tolist()
-    print(
-        f"   fp64 LU, {n_cores:2d} thread(s): {t64 * 1e3:8.1f} ms; "
-        f"P(k) fp32 vs fp64 LU: {np.max(np.abs(pk / pk64 - 1)):.2e}; "
-        f"accepted steps {steps64} against {accepted.sum()} (fp32)",
-        flush=True,
-    )
     sweep = {}
-    reference = solve(rtol=1e-7, atol=1e-7)
+    reference, _ = launch(lu="fp64", tol=1e-7)
     for tol in (1e-3, 1e-4, 1e-5, 1e-6):
-        t, pk_tol = timed(lambda tol=tol: solve(rtol=tol, atol=tol))
+        t, (pk_tol, stats_tol) = timed(lambda tol=tol: launch(lu="fp64", tol=tol))
         sweep[f"{tol:.0e}"] = {
             "max_rel_vs_1e-7": float(np.max(np.abs(pk_tol / reference - 1))),
             "seconds": t,
-            "accepted": int(modax_stub.LAST_STATS["accepted_steps"].sum()),
+            "accepted": int(stats_tol["accepted_steps"].sum()),
         }
         print(
             f"   rtol = atol = {tol:.0e}: P(k) within {sweep[f'{tol:.0e}']['max_rel_vs_1e-7']:.2e} "
@@ -173,7 +208,6 @@ def run(name: str) -> dict:
             flush=True,
         )
     out["tolerance_sweep"] = sweep
-    modax_stub.DEFAULTS.update(lu_precision=None)
 
     pk_class = class_pk(cosmology, K)
     if pk_class is not None:
@@ -186,8 +220,6 @@ def run(name: str) -> dict:
             f"(DISCO-EB's gate is {5e-3:.0e})",
             flush=True,
         )
-    out["threads_available"] = n_cores
-    out["cpu"] = os.uname().machine
     RESULTS.mkdir(exist_ok=True)
     (RESULTS / f"pk_{name}.json").write_text(json.dumps(out, indent=1))
     return out
