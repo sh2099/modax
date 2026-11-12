@@ -8,15 +8,17 @@ nothing to pass. ``test_sparse_direct.py`` covers the sparse path.
 
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
 
+from modax import _target
 from modax.rodas5P import (
     _DEFAULT_TRAJECTORIES_PER_BLOCK,
     trajectories_per_block_or_default,
 )
 from modax.rodas5P import solve as rodas5P_solve
 
-requires_cuda = pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
+requires_cuda = pytest.mark.skipif(
+    not _target.available(), reason="no device to solve on"
+)
 
 
 # Non-autonomous: dy/dt = -lam*y + forcing*t, y(0) = 0. Without the

@@ -11,15 +11,13 @@ from typing import Literal, Sequence, TypeAlias, overload
 import jax
 import jax.numpy as jnp
 from jax.typing import ArrayLike
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
 
 from modax._jax_common import (
     ensemble_ffi_call,
     make_custom_vmap_solver,
     prepare_inputs,
 )
-from modax._jax_numba_custom_call import CudaLaunch, make_launch
+from modax._jax_numba_custom_call import CpuLaunch, CudaLaunch, make_launch
 from modax._numba_common import (
     SOLVER_ARGTYPES,
     OdeFn,
@@ -39,6 +37,14 @@ from modax._sensitivity import (
 )
 from modax._sensitivity import (
     clear_caches as clear_sensitivity_caches,
+)
+from modax._target import (
+    TARGET,
+    DeviceFunction,
+    cuda,
+    ensemble_driver,
+    require_sensitivities,
+    types,
 )
 
 # fmt: off
@@ -184,7 +190,7 @@ def clear_caches() -> None:
 @functools.cache
 def _make_body(
     ode_fn: OdeFn, n_vars: int, gains: PIDGains, spec: SensitivitySpec | None
-) -> MLIRDispatcher:
+) -> DeviceFunction:
     """Build the per-trajectory Tsit5 integration loop as a CUDA device function.
 
     ``i`` is the trajectory, indexing the ensemble's global arrays (``y0``,
@@ -420,7 +426,7 @@ def _make_kernel(
     gains: PIDGains,
     spec: SensitivitySpec | None,
     shared: bool,
-) -> MLIRDispatcher:
+) -> DeviceFunction:
     """Build a Tsit5 kernel: one thread per trajectory, storage chosen by ``shared``.
 
     Either way the launch carries no scratch and ``y0``/``weights``/``hist``
@@ -432,8 +438,66 @@ def _make_kernel(
     does a local array. Every thread touches only its own column, so nothing
     synchronises and a thread past the ensemble's end simply leaves.
     """
+    if spec is not None:
+        require_sensitivities("a Tsit5 solve with a sensitivity spec")
     body = _make_body(ode_fn, n_vars, gains, spec)
     n_system = n_vars if spec is None else spec.n_aug
+
+    if TARGET == "cpu":
+        # Shared memory is a CUDA notion: on the CPU every trajectory's nine
+        # vectors are its own, as in the local kernel below, and the parallel
+        # loop of ensemble_driver stands in for the grid of threads.
+        @cuda.jit(device=True)
+        def trajectory(
+            i,
+            y0,
+            times,
+            params,
+            dt0,
+            rtol,
+            atol,
+            max_steps,
+            weights,
+            hist,
+            accepted_out,
+            rejected_out,
+            loop_out,
+        ):
+            y = cuda.local.array(n_system, types.float64)
+            u = cuda.local.array(n_system, types.float64)
+            k1 = cuda.local.array(n_system, types.float64)
+            k2 = cuda.local.array(n_system, types.float64)
+            k3 = cuda.local.array(n_system, types.float64)
+            k4 = cuda.local.array(n_system, types.float64)
+            k5 = cuda.local.array(n_system, types.float64)
+            k6 = cuda.local.array(n_system, types.float64)
+            k7 = cuda.local.array(n_system, types.float64)
+            body(
+                y0,
+                times,
+                params,
+                dt0,
+                rtol,
+                atol,
+                max_steps,
+                weights,
+                hist,
+                accepted_out,
+                rejected_out,
+                loop_out,
+                y,
+                u,
+                k1,
+                k2,
+                k3,
+                k4,
+                k5,
+                k6,
+                k7,
+                i,
+            )
+
+        return ensemble_driver(trajectory, 12)
 
     if not shared:
 
@@ -615,9 +679,11 @@ def _make_jax_launch(
     gains: PIDGains,
     spec: SensitivitySpec | None,
     shared: bool,
-) -> CudaLaunch:
+) -> CudaLaunch | CpuLaunch:
     """Compile, load and size the kernel behind one JAX-side ensemble launch."""
     kernel = _make_kernel(ode_fn, n_vars, gains, spec, shared)
+    if TARGET == "cpu":
+        return CpuLaunch(kernel)
     threads = _SHARED_BLOCK if shared else _LOCAL_BLOCK
     blocks = (n + threads - 1) // threads
     return make_launch(kernel, SOLVER_ARGTYPES, grid=blocks, block=threads)

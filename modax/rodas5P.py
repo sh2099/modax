@@ -21,8 +21,6 @@ import jax.numpy as jnp
 import numpy as np
 import numpy.typing as npt
 from jax.typing import ArrayLike
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
 
 from modax._codegen import compile_device_source
 from modax._jax_common import (
@@ -30,7 +28,7 @@ from modax._jax_common import (
     make_custom_vmap_solver,
     prepare_inputs,
 )
-from modax._jax_numba_custom_call import CudaLaunch, make_launch
+from modax._jax_numba_custom_call import CpuLaunch, CudaLaunch, make_launch
 from modax._numba_common import (
     HOOK_OUT_ARGTYPE,
     SOLVER_ARGTYPES,
@@ -57,14 +55,28 @@ from modax._sensitivity import (
 # Re-exported: the save hook of a quantity and its tangents, for solve(...).
 from modax._sensitivity import quantity_hook as quantity_hook
 from modax._sparse_direct import Ordering, sparse_direct_solver_for
-from modax._sparsity import Pattern, Sparsity, dense_jacobian, normalize_sparsity
+from modax._sparsity import (
+    CompressedJacobian,
+    Pattern,
+    Sparsity,
+    dense_jacobian,
+    normalize_sparsity,
+)
+from modax._target import (
+    TARGET,
+    DeviceFunction,
+    cuda,
+    ensemble_driver,
+    require_sensitivities,
+    types,
+)
 
 LUPrecision: TypeAlias = Literal["fp32", "fp64"]
 """The precision of the per-step LU factorisation and triangular solves."""
 
 ArrayRhs: TypeAlias = (
     Callable[[Sequence[float], float, Sequence[float], MutableSequence[float]], None]
-    | MLIRDispatcher
+    | DeviceFunction
 )
 """A right-hand side over arrays, ``f(y, t, p, out)``, equivalent to the
 tuple-form ``ode_fn``."""
@@ -73,7 +85,7 @@ SaveHook: TypeAlias = (
     Callable[
         [int, Sequence[float], float, Sequence[float], MutableSequence[float]], None
     ]
-    | MLIRDispatcher
+    | DeviceFunction
 )
 """A save hook ``hook(save_idx, y, t, p_row, acc)``, called at every save time."""
 
@@ -208,7 +220,7 @@ class KernelOptions:
 
 
 @functools.cache
-def dense_lu_solver(n_vars: int) -> tuple[MLIRDispatcher, MLIRDispatcher]:
+def dense_lu_solver(n_vars: int) -> tuple[DeviceFunction, DeviceFunction]:
     """Dense LU with partial pivoting, one system per thread.
 
     This is what the kernel uses when it is given no sparsity pattern:
@@ -298,7 +310,7 @@ def _make_literal_seed_jacobian(
     n_colours: int,
     store_table: npt.NDArray[np.int32] | None,
     namespace: dict[str, object],
-) -> MLIRDispatcher:
+) -> DeviceFunction:
     """Generate the Jacobian writer with every colour's seed row spelled out.
 
     ``store_table`` is the layout's destination table, ``(row, colour) ->
@@ -318,7 +330,9 @@ def _make_literal_seed_jacobian(
                     yield row, slot
 
     lines = [
-        "def write_negated_jacobian(y_local, t, p_row, lu, dT):",
+        # rtol, atol and dt size the CPU target's finite differences
+        # (_make_difference_jacobian); Enzyme's sweeps need no step.
+        "def write_negated_jacobian(y_local, t, p_row, lu, dT, rtol, atol, dt):",
         "    seed = cuda.const.array_like(colour_seeds)",
         f"    column = cuda.local.array({n_vars}, float64)",
         "    clear_matrix(lu)",
@@ -353,10 +367,99 @@ def _make_literal_seed_jacobian(
     return compile_device_source("write_negated_jacobian", lines, namespace)
 
 
+_SQRT_EPS = math.sqrt(float(np.finfo(np.float64).eps))
+
+
+def _make_difference_jacobian(
+    *,
+    ode_write: DeviceFunction,
+    structure: CompressedJacobian,
+    pattern: Pattern | None,
+    clear_matrix: DeviceFunction,
+    lu_dtype: type,
+) -> DeviceFunction:
+    """The Jacobian writer of the CPU target: forward differences of ``ode_write``.
+
+    The contract of `_make_literal_seed_jacobian`'s writer -- ``-df/dy`` into
+    the layout's slots of ``lu``, ``df/dt`` into ``dT`` -- without Enzyme. The
+    colouring is used the same way: the columns of a group share no row, so
+    one right-hand side evaluated with the whole group perturbed yields every
+    entry of the group, ``n_colours + 2`` evaluations a step with the one at
+    the base point.
+
+    Column ``c`` is stepped by ``sqrt(eps) max(|y_c|, atol / rtol)``: the
+    forward-difference step for a component of size ``|y_c|``, with
+    ``atol / rtol`` -- the size at which the controller's absolute and relative
+    tolerances meet -- as the typical size of a component that is zero or far
+    below it. Without a floor of that kind a small component is stepped by so
+    little that the difference drowns in the rounding of ``f``, whose other
+    terms need not be small: an entry for a state of size 1e-6 beside a
+    forcing term of order one is wrong in the third digit. Each entry is
+    divided by the step its own column took, which is why this is written
+    against the pattern rather than as a directional derivative along the
+    group's indicator. Time is stepped by ``sqrt(eps) max(|t|, |dt|)``.
+
+    With no pattern every column is its own colour and every row an entry.
+    """
+    n_vars, n_colours = structure.n_vars, structure.n_colours
+    rows_of = (
+        tuple(tuple(range(n_vars)) for _ in range(n_vars))
+        if pattern is None
+        else tuple(
+            tuple(r for r, cols in enumerate(pattern) if c in cols)
+            for c in range(n_vars)
+        )
+    )
+    groups: list[list[int]] = [[] for _ in range(n_colours)]
+    for c, g in enumerate(structure.colour):
+        groups[g].append(c)
+    entries = [[(r, c) for c in group for r in rows_of[c]] for group in groups]
+    col_start = np.cumsum([0, *(len(g) for g in groups)]).astype(np.int32)
+    col_index = np.array([c for g in groups for c in g], dtype=np.int32)
+    ent_start = np.cumsum([0, *(len(e) for e in entries)]).astype(np.int32)
+    ent_row = np.array([r for e in entries for r, _ in e], dtype=np.int32)
+    ent_col = np.array([c for e in entries for _, c in e], dtype=np.int32)
+    ent_slot = np.array(
+        [structure.slot(r, c) for e in entries for r, c in e], dtype=np.int32
+    )
+
+    @cuda.jit(device=True)
+    def write_negated_jacobian(y_local, t, p_row, lu, dT, rtol, atol, dt):
+        base = cuda.local.array(n_vars, types.float64)
+        moved = cuda.local.array(n_vars, types.float64)
+        y_moved = cuda.local.array(n_vars, types.float64)
+        clear_matrix(lu)
+        ode_write(y_local, t, p_row, base)
+        typical = atol / rtol if rtol > 0.0 else 1.0
+        for j in range(n_vars):
+            y_moved[j] = y_local[j]
+        for g in range(n_colours):
+            for a in range(col_start[g], col_start[g + 1]):
+                c = col_index[a]
+                y_moved[c] = y_local[c] + _SQRT_EPS * max(abs(y_local[c]), typical)
+            ode_write(y_moved, t, p_row, moved)
+            for a in range(ent_start[g], ent_start[g + 1]):
+                c = ent_col[a]
+                r = ent_row[a]
+                # the step taken, after rounding into y_moved
+                lu[ent_slot[a]] = lu_dtype(
+                    -(moved[r] - base[r]) / (y_moved[c] - y_local[c])
+                )
+            for a in range(col_start[g], col_start[g + 1]):
+                c = col_index[a]
+                y_moved[c] = y_local[c]
+        t_moved = t + _SQRT_EPS * max(abs(t), abs(dt))
+        ode_write(y_local, t_moved, p_row, moved)
+        for j in range(n_vars):
+            dT[j] = (moved[j] - base[j]) / (t_moved - t)
+
+    return write_negated_jacobian
+
+
 @functools.cache
 def _make_kernel(
     ode_fn: OdeFn, n_vars: int, n_params: int, options: KernelOptions
-) -> tuple[MLIRDispatcher, int]:
+) -> tuple[DeviceFunction, int]:
     """Rodas5P, one trajectory per CUDA thread.
 
     A thread owns its trajectory outright: the state, the ten stage vectors,
@@ -375,6 +478,8 @@ def _make_kernel(
     can see.
     """
     spec, sparsity, lu_precision = options.spec, options.sparsity, options.lu_precision
+    if spec is not None:
+        require_sensitivities("a Rodas5P solve with a sensitivity spec")
     tf_index, array_rhs = options.tf_index, options.array_rhs
     # Both compile-time constants: numba prunes the hook call and the history
     # writes it does not need, so a solve without a hook compiles as before.
@@ -502,7 +607,6 @@ def _make_kernel(
     # 1/(h*gamma) on the diagonal slots to finish M. Writing straight here,
     # rather than staging J through global memory and reading it back, avoids a
     # per-step round-trip of the whole matrix.
-    tangent_of = make_tangent(ode_fn, n_vars, n_params)
     colour_seeds = structure.seed_table(n_params)
 
     # The grid writes every slot and a packed layout has one slot per entry,
@@ -531,20 +635,31 @@ def _make_kernel(
     # this kernel at the register cap with a 13 KB spill frame. Several seeds
     # go into each call (SEED_BATCH) so the sweeps' shared primal is computed
     # once, and the stores are literal too, one per entry the colour holds.
-    write_negated_jacobian = _make_literal_seed_jacobian(
-        n_vars=n_vars,
-        n_params=n_params,
-        n_colours=n_colours,
-        store_table=store_table,
-        namespace=dict(
-            cuda=cuda,
-            float64=types.float64,
-            tangent_of=tangent_of,
-            colour_seeds=colour_seeds,
+    if TARGET == "cuda":
+        write_negated_jacobian = _make_literal_seed_jacobian(
+            n_vars=n_vars,
+            n_params=n_params,
+            n_colours=n_colours,
+            store_table=store_table,
+            namespace=dict(
+                cuda=cuda,
+                float64=types.float64,
+                tangent_of=make_tangent(ode_fn, n_vars, n_params),
+                colour_seeds=colour_seeds,
+                clear_matrix=clear_matrix,
+                lu_dtype=lu_dtype,
+            ),
+        )
+    else:
+        # No Enzyme here: the same -J and df/dt by forward differences of the
+        # right-hand side, one evaluation per colour group.
+        write_negated_jacobian = _make_difference_jacobian(
+            ode_write=ode_write,
+            structure=structure,
+            pattern=sparsity,
             clear_matrix=clear_matrix,
             lu_dtype=lu_dtype,
-        ),
-    )
+        )
 
     # --- one Rosenbrock stage, state row plus any sensitivity rows -----------
     if spec is None:
@@ -656,7 +771,7 @@ def _make_kernel(
         (A61, A62, A63, A64, A65),
     )
 
-    def make_stage(s: int) -> MLIRDispatcher:
+    def make_stage(s: int) -> DeviceFunction:
         d = d_row[s]
 
         if s == 0:
@@ -695,7 +810,7 @@ def _make_kernel(
 
         return stage
 
-    def make_advance(s: int) -> MLIRDispatcher:
+    def make_advance(s: int) -> DeviceFunction:
         a_row = a_rows[s]
         n_prev = s + 1
 
@@ -725,8 +840,11 @@ def _make_kernel(
         else {"max_registers": options.max_registers}
     )
 
-    @cuda.jit(**jit_options)
-    def kernel(
+    # One trajectory, start to finish, as a device function of its index: a
+    # CUDA thread calls it with its own, the CPU target from a parallel loop.
+    @cuda.jit(device=True)
+    def trajectory(
+        i,
         y0,
         times,
         params,
@@ -741,15 +859,6 @@ def _make_kernel(
         loop_out,
         hook_out,
     ):
-        # `blockIdx`/`threadIdx` exist only inside a compiled kernel;
-        # numba materialises them during lowering, so a static reader
-        # sees nothing on the `cuda` namespace here.
-        i = cuda.blockIdx.x * tpb + cuda.threadIdx.x  # ty: ignore[unresolved-attribute]
-        # Nothing in a step is collective any more, so a thread past the end of
-        # the ensemble simply leaves rather than shadowing a trajectory through
-        # barriers it would otherwise have to reach.
-        if i >= y0.shape[0]:
-            return
         diag = cuda.const.array_like(diag_table)
 
         n_save = times.shape[0]
@@ -817,7 +926,7 @@ def _make_kernel(
             t_end = t + dt_use
 
             dtgamma_inv = 1.0 / (dt_use * GAMMA)
-            write_negated_jacobian(y, t, p_row, lu_buf, dT)
+            write_negated_jacobian(y, t, p_row, lu_buf, dT, rtol, atol, dt_use)
             write_sensitivity_time_derivative(y, t, p_row, dT)
             for d in range(n_vars):
                 lu_buf[diag[d]] += lu_dtype(dtgamma_inv)
@@ -1041,14 +1150,61 @@ def _make_kernel(
         rejected_out[i] = rejected
         loop_out[i] = n_steps
 
+    if TARGET == "cpu":
+        return ensemble_driver(trajectory, 13), tpb
+
+    @cuda.jit(**jit_options)
+    def kernel(
+        y0,
+        times,
+        params,
+        dt0,
+        rtol,
+        atol,
+        max_steps,
+        weights,
+        hist,
+        accepted_out,
+        rejected_out,
+        loop_out,
+        hook_out,
+    ):
+        # `blockIdx`/`threadIdx` exist only inside a compiled kernel;
+        # numba materialises them during lowering, so a static reader
+        # sees nothing on the `cuda` namespace here.
+        i = cuda.blockIdx.x * tpb + cuda.threadIdx.x  # ty: ignore[unresolved-attribute]
+        # Nothing in a step is collective, so a thread past the end of the
+        # ensemble simply leaves rather than shadowing a trajectory through
+        # barriers it would otherwise have to reach.
+        if i >= y0.shape[0]:
+            return
+        trajectory(
+            i,
+            y0,
+            times,
+            params,
+            dt0,
+            rtol,
+            atol,
+            max_steps,
+            weights,
+            hist,
+            accepted_out,
+            rejected_out,
+            loop_out,
+            hook_out,
+        )
+
     return kernel, tpb
 
 
 @functools.cache
 def _make_jax_launch(
     ode_fn: OdeFn, n: int, n_vars: int, n_params: int, options: KernelOptions
-) -> CudaLaunch:
+) -> CudaLaunch | CpuLaunch:
     kernel, trajectories_per_block = _make_kernel(ode_fn, n_vars, n_params, options)
+    if TARGET == "cpu":
+        return CpuLaunch(kernel)
     blocks = (n + trajectories_per_block - 1) // trajectories_per_block
     return make_launch(
         kernel,

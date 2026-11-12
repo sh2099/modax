@@ -15,3 +15,5 @@ The private modules underlying `solve`.
 ::: modax._sparse_direct
 
 ::: modax._sparsity
+
+::: modax._target

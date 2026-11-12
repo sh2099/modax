@@ -12,15 +12,13 @@ import jax
 import numpy as np
 import numpy.typing as npt
 from jax.typing import ArrayLike
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
-from numba_cuda_mlir.numba_cuda.types import Type
 
 from modax._jax_numba_custom_call import ABI_ARRAY, ABI_SCALAR_F64, ABI_SCALAR_I32
+from modax._target import DeviceFunction, Type, cuda, types
 
 OdeFn: TypeAlias = (
     Callable[[Sequence[float], float, Sequence[float]], tuple[float, ...]]
-    | MLIRDispatcher
+    | DeviceFunction
 )
 """The right-hand side, ``(y, t, p) -> tuple`` of scalars.
 
@@ -108,7 +106,7 @@ SAFETY = 0.9
 
 def make_step_controller(
     gains: PIDGains, order: int, factor_min: float, factor_max: float
-) -> MLIRDispatcher:
+) -> DeviceFunction:
     """The device function that rescales the step after every attempt.
 
     ``next_step(err_norm, err_prev, err_prev2, accept)`` returns the factor to
@@ -212,16 +210,16 @@ def solver_stats(
 
 
 @functools.cache
-def as_cuda_device(fn: Callable[..., object] | MLIRDispatcher) -> MLIRDispatcher:
+def as_cuda_device(fn: Callable[..., object] | DeviceFunction) -> DeviceFunction:
     """``fn`` as a CUDA device function: ``cuda.jit(device=True)`` unless it
     already is one, cached so a callback is compiled once.
     """
-    if isinstance(fn, MLIRDispatcher):
+    if isinstance(fn, DeviceFunction):
         return fn
     return cuda.jit(device=True)(fn)
 
 
-def make_cuda_local_vector_writer(fn: OdeFn, n_vars: int) -> MLIRDispatcher:
+def make_cuda_local_vector_writer(fn: OdeFn, n_vars: int) -> DeviceFunction:
     """A vector writer over one trajectory's own thread-local arrays.
 
     Both kernels run one trajectory per thread, so there is no stripe to share:

@@ -2,6 +2,11 @@ import jax
 import jax.numpy as jnp
 import pytest
 
+# Every test here launches a kernel, so every one of them needs a device. The
+# guard is not belt and braces: without it `numba_cuda_mlir` raises
+# `CudaSupportError` at driver init and the whole file *fails* on a machine
+# with no GPU rather than skipping, which is what the rest of the suite does.
+from modax import _target  # noqa: E402
 from modax.rodas5P import solve as rodas5Pnumba_solve
 from modax.tsit5 import solve as tsit5numba_solve
 from tests.benchmark_helpers import (
@@ -10,13 +15,7 @@ from tests.benchmark_helpers import (
     parametrize_system_cases,
 )
 
-# Every test here launches a kernel, so every one of them needs a device. The
-# guard is not belt and braces: without it `numba_cuda_mlir` raises
-# `CudaSupportError` at driver init and the whole file *fails* on a machine
-# with no GPU rather than skipping, which is what the rest of the suite does.
-cuda = pytest.importorskip("numba_cuda_mlir.cuda")
-
-pytestmark = pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
+pytestmark = pytest.mark.skipif(not _target.available(), reason="no device to solve on")
 
 
 @parametrize_system_cases

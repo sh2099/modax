@@ -16,13 +16,13 @@ import sysconfig
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Sequence
 
 import jax
 import numpy as np
 from jax.typing import ArrayLike
-from numba_cuda_mlir.descriptor import MLIRDispatcher
-from numba_cuda_mlir.numba_cuda.types import Type
+
+from modax._target import DeviceFunction, Type
 
 _CAPSULE_NAME = b"xla._CUSTOM_CALL_TARGET"
 _TARGET_NAME = "modax_numba_cuda_abi_launch"
@@ -43,6 +43,13 @@ class CudaLaunch:
     grid: tuple[int, int, int]
     block: tuple[int, int, int]
     shared_mem: int = 0
+
+
+@dataclass(frozen=True)
+class CpuLaunch:
+    """A kernel's CPU form: the parallel loop over trajectories, called on host arrays."""
+
+    driver: Callable[..., None]
 
 
 def _as_3d(value: int | Sequence[int]) -> tuple[int, int, int]:
@@ -323,7 +330,7 @@ def compile_target() -> tuple[int, int]:
     return device if device < (10, 0) else _NEWEST_LLVM7_TARGET
 
 
-def target_kernel(kernel: MLIRDispatcher) -> MLIRDispatcher:
+def target_kernel(kernel: DeviceFunction) -> DeviceFunction:
     """Point ``kernel`` at `compile_target` where it is not the GPU's own.
 
     An explicit chip below the device's is compiled for that chip and linked
@@ -333,12 +340,12 @@ def target_kernel(kernel: MLIRDispatcher) -> MLIRDispatcher:
 
     Parameters
     ----------
-    kernel : MLIRDispatcher
+    kernel : DeviceFunction
         A ``cuda.jit`` kernel, not yet compiled.
 
     Returns
     -------
-    MLIRDispatcher
+    DeviceFunction
         The same kernel.
     """
     from numba_cuda_mlir import tools
@@ -349,7 +356,7 @@ def target_kernel(kernel: MLIRDispatcher) -> MLIRDispatcher:
     return kernel
 
 
-def compile_kernel(kernel: MLIRDispatcher, argtypes: Sequence[Type]) -> int:
+def compile_kernel(kernel: DeviceFunction, argtypes: Sequence[Type]) -> int:
     """Compile a ``cuda.jit`` kernel and return its ``CUfunction`` pointer.
 
     The kernel is compiled for `compile_target`, which differs from the GPU
@@ -384,7 +391,7 @@ def compile_kernel(kernel: MLIRDispatcher, argtypes: Sequence[Type]) -> int:
 
 
 def make_launch(
-    kernel: MLIRDispatcher,
+    kernel: DeviceFunction,
     argtypes: Sequence[Type],
     *,
     grid: int | Sequence[int],
@@ -404,8 +411,48 @@ def make_launch(
     )
 
 
+def _cpu_call(
+    launch: CpuLaunch,
+    inputs: Sequence[ArrayLike],
+    output_specs: Sequence[jax.ShapeDtypeStruct],
+    input_kinds: Sequence[int],
+    scalar_f64_values: Sequence[float],
+    scalar_i32_values: Sequence[int],
+) -> tuple[jax.Array, ...]:
+    """Run a CPU launch behind ``jax.pure_callback``, arguments in the kernel's order.
+
+    The same contract as the CUDA custom call: the arrays arrive as given, the
+    scalars are interleaved by ``input_kinds``, and the outputs are allocated
+    here for the kernel to fill. They are zeroed, since a kernel need not write
+    an output it has no use for (the hook rows of an unhooked solve).
+    """
+    from modax._target import run_ensemble
+
+    f64, i32 = list(scalar_f64_values), list(scalar_i32_values)
+
+    def host(*arrays: np.ndarray) -> tuple[np.ndarray, ...]:
+        # Writable copies: XLA hands out read-only views, which numba types
+        # differently and would compile a second specialisation for.
+        pending = [np.array(a) for a in arrays]
+        scalars_f64, scalars_i32 = list(f64), list(i32)
+        args: list[object] = []
+        for kind in input_kinds:
+            if kind == ABI_ARRAY:
+                args.append(pending.pop(0))
+            elif kind == ABI_SCALAR_F64:
+                args.append(float(scalars_f64.pop(0)))
+            else:
+                args.append(np.int32(scalars_i32.pop(0)))
+        outputs = [np.zeros(spec.shape, spec.dtype) for spec in output_specs]
+        run_ensemble(launch.driver, *args, *outputs)
+        return tuple(outputs)
+
+    result = jax.pure_callback(host, tuple(output_specs), *inputs)
+    return tuple(result)
+
+
 def ffi_abi_call(
-    launch: CudaLaunch,
+    launch: CudaLaunch | CpuLaunch,
     inputs: Sequence[ArrayLike],
     output_specs: Sequence[jax.ShapeDtypeStruct],
     *,
@@ -418,6 +465,15 @@ def ffi_abi_call(
     Outputs are always arrays, so only the input kinds need spelling out.
     """
 
+    if isinstance(launch, CpuLaunch):
+        return _cpu_call(
+            launch,
+            inputs,
+            output_specs,
+            input_kinds,
+            scalar_f64_values,
+            scalar_i32_values,
+        )
     register_target()
     attrs = {
         "function": np.int64(launch.function),

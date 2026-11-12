@@ -13,15 +13,18 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
 
+from modax import _target
 from modax._sensitivity import SensitivitySpec, augmented_y0, split_augmented
 from modax.rodas5P import solve as rodas5P_solve
 from modax.tsit5 import solve as tsit5_solve
 
 jax.config.update("jax_enable_x64", True)
 
-requires_cuda = pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
+requires_cuda = pytest.mark.skipif(
+    not _target.available() or _target.TARGET == "cpu",
+    reason="forward sensitivities need Enzyme on a CUDA device",
+)
 both_solvers = pytest.mark.parametrize(
     "solve_fn, kwargs",
     [

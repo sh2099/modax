@@ -7,15 +7,13 @@ jax.config.update("jax_enable_x64", True)
 
 
 def _have_cuda() -> bool:
-    try:
-        from numba_cuda_mlir import cuda
-    except ImportError:
-        return False
-    return bool(cuda.is_available())
+    from modax import _target
+
+    return _target.available()
 
 
 def _build_numba_callbacks():
-    from numba_cuda_mlir import cuda
+    from modax._target import cuda
 
     @cuda.jit(device=True)
     def decay_device(y, t, p):
@@ -45,7 +43,7 @@ def _solver_cases():
 _SOLVER_CASES = _solver_cases()
 
 
-@pytest.mark.skipif(not _have_cuda(), reason="numba_cuda_mlir unavailable")
+@pytest.mark.skipif(not _have_cuda(), reason="no device to solve on")
 @pytest.mark.parametrize(
     ("name", "solve_fn", "args", "kwargs"),
     _SOLVER_CASES,
@@ -69,7 +67,7 @@ def test_solver_vmap_over_params_matches_native_ensemble(name, solve_fn, args, k
     np.testing.assert_allclose(vmapped[:, 0], direct, rtol=1e-9, atol=1e-9)
 
 
-@pytest.mark.skipif(not _have_cuda(), reason="numba_cuda_mlir unavailable")
+@pytest.mark.skipif(not _have_cuda(), reason="no device to solve on")
 @pytest.mark.parametrize(
     ("name", "solve_fn", "args", "kwargs"),
     _SOLVER_CASES,
@@ -97,7 +95,7 @@ def test_solver_vmap_over_y0_and_params_matches_native_ensemble(
     np.testing.assert_allclose(vmapped[:, 0], direct, rtol=1e-9, atol=1e-9)
 
 
-@pytest.mark.skipif(not _have_cuda(), reason="numba_cuda_mlir unavailable")
+@pytest.mark.skipif(not _have_cuda(), reason="no device to solve on")
 def test_solvers_auto_jit_plain_python_callbacks():
     from modax.rodas5P import solve as rodas5Pnumba_solve
     from modax.tsit5 import solve as tsit5numba_solve
@@ -125,7 +123,7 @@ def test_solvers_auto_jit_plain_python_callbacks():
     np.testing.assert_allclose(rodas5P_sol[:, :, 0], expected, rtol=2e-5, atol=2e-7)
 
 
-@pytest.mark.skipif(not _have_cuda(), reason="numba_cuda_mlir unavailable")
+@pytest.mark.skipif(not _have_cuda(), reason="no device to solve on")
 def test_solver_vmap_return_stats_shapes():
     from modax.rodas5P import solve as rodas5Pnumba_solve
 

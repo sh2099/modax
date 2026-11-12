@@ -14,8 +14,8 @@ Closed form:    y(t) = forcing * (lambda * t - 1 + exp(-lambda t)) / lambda**2
 import jax
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
 
+from modax import _target
 from modax.rodas5P import solve as rodas5Pnumba_solve
 
 jax.config.update("jax_enable_x64", True)
@@ -42,7 +42,7 @@ def _setup():
     return y0, t_span, params, exact
 
 
-@pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
+@pytest.mark.skipif(not _target.available(), reason="no device to solve on")
 def test_rodas5P_nonautonomous_matches_analytical():
     y0, t_span, params, exact = _setup()
     sol = rodas5Pnumba_solve(
@@ -60,7 +60,7 @@ def test_rodas5P_nonautonomous_matches_analytical():
     assert err < 1e-5, f"max error {err:.2e} too large (with dT correction)"
 
 
-@pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
+@pytest.mark.skipif(not _target.available(), reason="no device to solve on")
 def test_rodas5P_autonomous_unchanged():
     """An autonomous problem must still solve correctly: Enzyme derives
     ``df/dt = 0``, so every ``D_i * dT`` term contributes zero.

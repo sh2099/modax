@@ -17,11 +17,13 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda, tools
-from numba_enzyme.cuda import CUDAEnzymeError
 
-from modax import _jax_numba_custom_call as bridge
-from modax import _sensitivity
+cuda = pytest.importorskip("numba_cuda_mlir.cuda")
+tools = pytest.importorskip("numba_cuda_mlir.tools")
+CUDAEnzymeError = pytest.importorskip("numba_enzyme.cuda").CUDAEnzymeError
+
+from modax import _jax_numba_custom_call as bridge  # noqa: E402
+from modax import _sensitivity  # noqa: E402
 
 jax.config.update("jax_enable_x64", True)
 

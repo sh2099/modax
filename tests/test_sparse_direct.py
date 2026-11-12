@@ -14,8 +14,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
 
+from modax import _target
 from modax._sparse_direct import (
     ORDERINGS,
     SparseDirectSolver,
@@ -29,7 +29,12 @@ from modax.rodas5P import solve as rodas5P_solve
 
 jax.config.update("jax_enable_x64", True)
 
-requires_cuda = pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
+requires_cuda = pytest.mark.skipif(
+    not _target.available(), reason="no device to solve on"
+)
+requires_sensitivities = pytest.mark.skipif(
+    _target.TARGET == "cpu", reason="forward sensitivities need Enzyme on a CUDA device"
+)
 
 try:  # SuiteSparse's AMD, out of a wheel and with no system library
     from cvxopt import amd as _amd  # noqa: F401
@@ -464,6 +469,7 @@ def test_the_table_driven_form_solves_what_the_unrolled_one_does(monkeypatch):
 
 
 @requires_cuda
+@requires_sensitivities
 @requires_amd
 def test_gradients_survive_the_sparse_solver():
     """The joint system only ever asks the solver for the n_vars block."""

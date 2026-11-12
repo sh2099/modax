@@ -130,6 +130,19 @@ A hooked solve is a plain ensemble launch: no `jax.vmap`, no differentiation.
 
 Shared support modules:
 
+- **`_target.py`** — which device the kernels compile for, and the `cuda`,
+  `types` and `DeviceFunction` names every other module takes from it. With
+  `numba_cuda_mlir` installed they are numba-CUDA's own and nothing below
+  changes. Without it (macOS, or `MODAX_TARGET=cpu`) they are plain-numba
+  stand-ins (`cuda.jit(device=True)` is `njit`, `cuda.local.array` is
+  `np.empty`), and the same kernel source runs on the CPU: each solver keeps
+  one trajectory's integration in a device function of its index, which the
+  CUDA kernel calls with its thread's index and `ensemble_driver` calls from a
+  `prange` loop. The CPU target has no Enzyme: Rodas5P's Jacobian is
+  `_make_difference_jacobian` (coloured forward differences, CVODE's step
+  rule) and anything that needs forward sensitivities raises
+  `NotImplementedError` (`require_sensitivities`). `tests/test_cpu_target.py`
+  pins it.
 - **`_numba_common.py`** — what both kernels share: the `cuda.jit` coercion
   for user callbacks, the per-call `SolveSettings`, the `PIDGains` and the
   step-controller device function (`make_step_controller`, which both kernels
@@ -145,8 +158,9 @@ Shared support modules:
   itself (`ensemble_ffi_call`), and `make_custom_vmap_solver`, whose
   `custom_vmap` rule lowers an outer `jax.vmap` over a single solve into one
   native ensemble launch. There is no direct numba launch path: every solve,
-  the benchmark scripts included, goes through `solve` and the XLA custom
-  call.
+  the benchmark scripts included, goes through `solve` and, on CUDA, the XLA
+  custom call; on the CPU target `ffi_abi_call` runs the same launch behind
+  `jax.pure_callback` instead (`CpuLaunch`).
 - **`_sparsity.py`** — colours a sparsity pattern's column intersection graph
   and defines `CompressedJacobian`, the layout the Enzyme sweeps write into.
 - **`_sparse_direct.py`** — orders a pattern with AMD, factorises it

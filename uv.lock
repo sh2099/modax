@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -1990,10 +1990,10 @@ dependencies = [
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "numba" },
-    { name = "numba-cuda-mlir" },
-    { name = "numba-cuda-mlir", extra = ["cu12"], marker = "python_full_version < '3.11'" },
-    { name = "numba-cuda-mlir", extra = ["cu13"], marker = "python_full_version >= '3.11'" },
-    { name = "numba-enzyme-cuda" },
+    { name = "numba-cuda-mlir", marker = "sys_platform != 'darwin'" },
+    { name = "numba-cuda-mlir", extra = ["cu12"], marker = "python_full_version < '3.11' and sys_platform != 'darwin'" },
+    { name = "numba-cuda-mlir", extra = ["cu13"], marker = "python_full_version >= '3.11' and sys_platform != 'darwin'" },
+    { name = "numba-enzyme-cuda", marker = "sys_platform != 'darwin'" },
     { name = "numpy" },
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -2042,9 +2042,9 @@ requires-dist = [
     { name = "jax", extras = ["cuda13"], marker = "python_full_version >= '3.11' and extra == 'cuda13'", specifier = ">=0.9.1" },
     { name = "networkx", specifier = ">=3.4" },
     { name = "numba", specifier = ">=0.61" },
-    { name = "numba-cuda-mlir", extras = ["cu12"], marker = "python_full_version < '3.11'", specifier = ">=0.5.1" },
-    { name = "numba-cuda-mlir", extras = ["cu13"], marker = "python_full_version >= '3.11'", specifier = ">=0.5.1" },
-    { name = "numba-enzyme-cuda", specifier = ">=0.3.0" },
+    { name = "numba-cuda-mlir", extras = ["cu12"], marker = "python_full_version < '3.11' and sys_platform != 'darwin'", specifier = ">=0.5.1" },
+    { name = "numba-cuda-mlir", extras = ["cu13"], marker = "python_full_version >= '3.11' and sys_platform != 'darwin'", specifier = ">=0.5.1" },
+    { name = "numba-enzyme-cuda", marker = "sys_platform != 'darwin'", specifier = ">=0.3.0" },
     { name = "numpy", specifier = ">=2.2.6" },
     { name = "scipy", specifier = ">=1.15.3" },
 ]

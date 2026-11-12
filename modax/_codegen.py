@@ -14,15 +14,14 @@ import itertools
 import linecache
 from typing import Mapping, Sequence
 
-from numba_cuda_mlir import cuda
-from numba_cuda_mlir.descriptor import MLIRDispatcher
+from modax._target import DeviceFunction, cuda
 
 _SOURCES = itertools.count(1)
 
 
 def compile_device_source(
     name: str, lines: Sequence[str], namespace: Mapping[str, object] | None = None
-) -> MLIRDispatcher:
+) -> DeviceFunction:
     """Exec ``lines`` defining ``name`` and return it as a device function.
 
     The source is registered with ``linecache`` under a filename of its own, so

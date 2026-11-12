@@ -9,8 +9,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
 
+from modax import _target
 from modax._sparsity import (
     CompressedJacobian,
     colour_sparsity,
@@ -21,7 +21,12 @@ from modax.rodas5P import solve
 
 jax.config.update("jax_enable_x64", True)
 
-requires_cuda = pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
+requires_cuda = pytest.mark.skipif(
+    not _target.available(), reason="no device to solve on"
+)
+requires_sensitivities = pytest.mark.skipif(
+    _target.TARGET == "cpu", reason="forward sensitivities need Enzyme on a CUDA device"
+)
 
 
 def _mask(n, pairs):
@@ -128,6 +133,7 @@ def test_a_pattern_solves_what_no_pattern_solves():
 
 
 @requires_cuda
+@requires_sensitivities
 def test_gradients_survive_compression():
     """The joint system only ever asks the solver for the n_vars block."""
     y0 = jnp.asarray([[1.0, 0.0, 0.0, 0.0]])

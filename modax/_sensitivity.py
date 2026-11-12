@@ -58,13 +58,26 @@ import numpy as np
 import numpy.typing as npt
 from jax.custom_derivatives import SymbolicZero
 from jax.typing import ArrayLike
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
-from numba_cuda_mlir.numba_cuda.typing.templates import Signature
-from numba_enzyme import jvp
 
 from modax._jax_numba_custom_call import compile_target
 from modax._numba_common import OdeFn, SolveOutput, Solver, as_cuda_device
+from modax._target import (
+    TARGET,
+    DeviceFunction,
+    Signature,
+    cuda,
+    require_sensitivities,
+    types,
+)
+
+if TARGET == "cuda":
+    from numba_enzyme import jvp
+else:
+
+    def jvp(*args: Any, **kwargs: Any) -> Any:
+        """Enzyme's forward sweep, which the CPU target does not have."""
+        require_sensitivities("a derivative of a device function")
+
 
 Tangent = Callable[..., None]
 """An Enzyme forward sweep: ``(out, *args, *directions)``, writing ``out``."""
@@ -163,6 +176,7 @@ def make_tangent(ode_fn: OdeFn, n_vars: int, n_params: int) -> Tangent:
     from unit columns instead costs ``n_vars + 1`` sweeps where this costs one.
     """
     # For the kernel's own target (compile_target), so the two link on Blackwell.
+    require_sensitivities("a directional derivative of the right-hand side")
     return jvp(
         as_cuda_device(ode_fn),
         signature=_primal_signature(n_vars, n_params),
@@ -189,6 +203,7 @@ def make_second_tangent(ode_fn: OdeFn, n_vars: int, n_params: int) -> Tangent:
     inner direction's own variation; every caller here passes zero for it,
     which leaves the plain bilinear form.
     """
+    require_sensitivities("a second derivative of the right-hand side")
     signature = _primal_signature(n_vars, n_params)
     cc = compile_target()
     return jvp(
@@ -215,7 +230,7 @@ def seed_table(spec: SensitivitySpec) -> npt.NDArray[np.float64]:
 
 
 @functools.cache
-def make_augmented_local_writer(ode_fn: OdeFn, spec: SensitivitySpec) -> MLIRDispatcher:
+def make_augmented_local_writer(ode_fn: OdeFn, spec: SensitivitySpec) -> DeviceFunction:
     """Joint ``[f, J_y S + J_p]`` writer for a kernel's thread-local state.
 
     Both kernels run one trajectory per thread, so the whole augmented vector --
@@ -279,7 +294,7 @@ def quantity_hook(
     n_vars: int,
     n_params: int,
     sensitivity: SensitivitySpec | None = None,
-) -> MLIRDispatcher:
+) -> DeviceFunction:
     """A save hook storing ``quantities(y, t, p)`` at every save, and their tangents.
 
     ``quantities`` is a device function (or a plain function, compiled as one)
@@ -316,7 +331,7 @@ def quantity_hook(
 
     Returns
     -------
-    MLIRDispatcher
+    DeviceFunction
         ``hook(save_idx, y, t, p_row, acc)``, the ``save_hook`` of ``solve``.
     """
     if n_outputs < 1:
@@ -342,6 +357,7 @@ def quantity_hook(
 
         return store_values
 
+    require_sensitivities("a quantity hook that stores tangents")
     n_sens = sensitivity.n_sens
     n_y0_dirs = sensitivity.n_y0_dirs
     param_cols = sensitivity.param_seed_columns

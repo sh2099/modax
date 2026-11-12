@@ -70,8 +70,6 @@ from typing import ClassVar, Literal, TypeAlias
 
 import numpy as np
 import numpy.typing as npt
-from numba_cuda_mlir import cuda
-from numba_cuda_mlir.descriptor import MLIRDispatcher
 
 from modax._codegen import compile_device_source
 from modax._sparsity import (
@@ -81,6 +79,7 @@ from modax._sparsity import (
     colour_sparsity,
     normalize_sparsity,
 )
+from modax._target import DeviceFunction, cuda
 
 IndexTable: TypeAlias = npt.NDArray[np.int32]
 """A table of slots or offsets, ``int32`` because that is what the device reads."""
@@ -415,8 +414,8 @@ class SparseDirectSolver:
 
     layout: SparseLULayout
     compressed: CompressedJacobian
-    factorize_local: MLIRDispatcher
-    solve_local: MLIRDispatcher
+    factorize_local: DeviceFunction
+    solve_local: DeviceFunction
     ipiv_size: ClassVar[int] = 1
 
     @property
@@ -483,7 +482,7 @@ MAX_UNROLLED_UPDATES = 8192
 
 def _make_factorize(
     layout: SparseLULayout, ops: tuple[IndexTable, IndexTable, IndexTable]
-) -> MLIRDispatcher:
+) -> DeviceFunction:
     """Up-looking LU of ``M``, in place, no pivoting.
 
     Row ``i`` is finished before row ``i + 1`` begins, so by the time the
@@ -542,7 +541,7 @@ def _unrolled_factorize(
     destination: IndexTable,
     pivot_of: IndexTable,
     upper_end: IndexTable,
-) -> MLIRDispatcher:
+) -> DeviceFunction:
     """Generate the factorisation with every slot spelled out as a literal.
 
     Each multiplier gets its own name rather than reusing one, so the only
@@ -566,7 +565,7 @@ def _unrolled_factorize(
     return compile_device_source("sparse_direct_factorize", lines)
 
 
-def _make_solve(layout: SparseLULayout) -> MLIRDispatcher:
+def _make_solve(layout: SparseLULayout) -> DeviceFunction:
     """The two triangular solves: ``M x = rhs`` in place, sparse both ways.
 
     Each sweep touches only the nonzeros -- ``nnz(L) + nnz(U)`` multiply-adds
@@ -628,7 +627,7 @@ def _unrolled_solve(
     diag_ptr: IndexTable,
     origin: IndexTable,
     col_origin: IndexTable,
-) -> MLIRDispatcher:
+) -> DeviceFunction:
     """Generate the two sweeps with every slot spelled out as a literal."""
 
     def terms(span: range) -> str:

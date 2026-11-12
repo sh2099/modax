@@ -14,15 +14,21 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
 
+from modax import _target
 from modax._sensitivity import SensitivitySpec, split_augmented
+from modax._target import cuda
 from modax.rodas5P import quantity_hook
 from modax.rodas5P import solve as rodas5P_solve
 
 jax.config.update("jax_enable_x64", True)
 
-requires_cuda = pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
+requires_cuda = pytest.mark.skipif(
+    not _target.available(), reason="no device to solve on"
+)
+requires_sensitivities = pytest.mark.skipif(
+    _target.TARGET == "cpu", reason="forward sensitivities need Enzyme on a CUDA device"
+)
 
 N_SAVE = 33
 
@@ -113,6 +119,7 @@ def test_save_history_false_needs_a_hook():
 
 
 @requires_cuda
+@requires_sensitivities
 def test_hook_sees_the_joint_state_of_a_sensitivity_solve():
     """With ``sensitivity`` the hook reads ``[y, S]`` and can store a tangent.
 
@@ -219,6 +226,7 @@ def _quantity_histories(quantities, n_outputs):
 
 
 @requires_cuda
+@requires_sensitivities
 @pytest.mark.parametrize(
     "quantities, n_outputs", [(energy_and_position, 2), (energy_alone, 1)]
 )
@@ -244,6 +252,7 @@ def test_quantity_hook_stores_the_quantities(quantities, n_outputs):
 
 
 @requires_cuda
+@requires_sensitivities
 @pytest.mark.parametrize(
     "quantities, n_outputs", [(energy_and_position, 2), (energy_alone, 1)]
 )
