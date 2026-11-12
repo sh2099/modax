@@ -1,0 +1,8 @@
+{
+ "trajectories": 16384,
+ "thermo_first_s": 7.238514583092183,
+ "first_solve_s": 26.300162582891062,
+ "warm_solve_s": 22.427577249938622,
+ "accepted": 4723533,
+ "rejected": 6214
+}
