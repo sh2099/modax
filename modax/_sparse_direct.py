@@ -58,8 +58,8 @@ from typing import ClassVar, TypeAlias
 
 import numpy as np
 import numpy.typing as npt
-from numba_cuda_mlir import cuda
-from numba_cuda_mlir.descriptor import MLIRDispatcher
+from modax._target import cuda
+from modax._target import DeviceFunction as MLIRDispatcher
 
 from modax._codegen import compile_device_source
 from modax._methods import Ordering

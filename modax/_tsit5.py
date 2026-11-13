@@ -6,10 +6,9 @@ import functools
 import math
 from typing import Any
 
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
+from modax._target import TARGET, cuda, types
+from modax._target import DeviceFunction as MLIRDispatcher
 
-from modax._kernel_cache import enable_content_cache
 from modax._methods import Backend, Tsit5
 from modax._numba_common import (
     OdeFn,
@@ -143,7 +142,8 @@ def make_kernel(
     method = options.method
     assert isinstance(method, Tsit5)
     n_system = n_vars if options.spec is None else options.spec.n_aug
-    shared = uses_shared(method.backend, n, n_system)
+    # shared memory is a CUDA block's; a CPU thread's buffers are its own
+    shared = uses_shared(method.backend, n, n_system) and TARGET == "cuda"
     return _make_kernel(ode_fn, n_vars, options, shared), options.trajectories_per_block
 
 
@@ -619,6 +619,8 @@ def _make_kernel(
 
         kernel = shared_kernel
 
-    if options.cache:
+    if options.cache and TARGET == "cuda":
+        from modax._kernel_cache import enable_content_cache
+
         enable_content_cache(kernel)
     return kernel

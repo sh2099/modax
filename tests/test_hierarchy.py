@@ -11,7 +11,7 @@ from modax import Rodas5P, solve
 from modax._hierarchy import Block, Hierarchy
 
 jax.config.update("jax_enable_x64", True)
-cuda = pytest.importorskip("numba_cuda_mlir.cuda")
+from modax._target import cuda  # noqa: E402
 
 pytestmark = pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
 

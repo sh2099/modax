@@ -14,7 +14,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
+from modax._target import cuda
 
 from modax import Rodas5P, Tsit5, solve
 from modax._sensitivity import SensitivitySpec, quantity_hook

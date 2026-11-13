@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from jax.custom_batching import custom_vmap
 from jax.typing import ArrayLike
 
-from modax._jax_numba_custom_call import CudaLaunch, ffi_abi_call
+from modax._jax_numba_custom_call import CpuLaunch, CudaLaunch, ffi_abi_call
 from modax._numba_common import (
     SOLVER_INPUT_KINDS,
     SolveSettings,
@@ -155,7 +155,7 @@ def prepare_inputs(
 
 
 def ensemble_ffi_call(
-    launch: CudaLaunch,
+    launch: CudaLaunch | CpuLaunch,
     inputs: EnsembleInputs,
     settings: SolveSettings,
     *,

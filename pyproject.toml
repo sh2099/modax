@@ -35,8 +35,10 @@ dependencies = [
     # cuda13 extra): JAX loads its own libnvJitLink.so.12 first, and a CUDA 13
     # numba-cuda-mlir then links its NVVM output through that older library,
     # which refuses it ("may need newer version of nvJitLink library").
-    "numba-cuda-mlir[cu13]>=0.5.1; python_version >= '3.11'",
-    "numba-cuda-mlir[cu12]>=0.5.1; python_version < '3.11'",
+    # Neither this nor numba-enzyme-cuda below has a macOS build. Without them
+    # the kernels compile for the CPU with plain numba (modax/_target.py).
+    "numba-cuda-mlir[cu13]>=0.5.1; python_version >= '3.11' and sys_platform != 'darwin'",
+    "numba-cuda-mlir[cu12]>=0.5.1; python_version < '3.11' and sys_platform != 'darwin'",
     # Supplies the Enzyme-derived Jacobians used by the implicit solvers. The
     # CUDA-enabled fork of numba-enzyme, published under its own name because
     # upstream's release has no CUDA backend; it vendors the LLVM 15 + Enzyme
@@ -44,7 +46,7 @@ dependencies = [
     # `numba_enzyme` import package, so upstream must not be installed
     # alongside it (see wheels/README.md). 0.3.0 is the first release with the
     # O3 prepasses that let a callback loop over its state, and Blackwell.
-    "numba-enzyme-cuda>=0.3.0",
+    "numba-enzyme-cuda>=0.3.0; sys_platform != 'darwin'",
     # Colours the Jacobian's column-intersection graph, so a sparsity pattern
     # turns into the few compressed Enzyme sweeps that recover it.
     "networkx>=3.4",

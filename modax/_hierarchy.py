@@ -74,12 +74,11 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import numpy as np
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
+from modax._target import TARGET, cuda, types
+from modax._target import DeviceFunction as MLIRDispatcher
 
 from modax import _tsit5 as T
 from modax._codegen import compile_device_source
-from modax._kernel_cache import enable_content_cache
 from modax._methods import (
     TSIT5_STABILITY_SIZE,
     Auto,
@@ -3147,7 +3146,9 @@ def make_hierarchy_kernel(
     if os.environ.get("MODAX_SPLIT_DUMP_MLIR"):
         jit_options["dump_mlir"] = True
     kernel = _compile_kernel(source, namespace, jit_options)
-    if options.cache:
+    if options.cache and TARGET == "cuda":
+        from modax._kernel_cache import enable_content_cache
+
         enable_content_cache(kernel)
     return kernel, tpb
 

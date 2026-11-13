@@ -12,11 +12,8 @@ from typing import (
 
 import numpy as np
 import numpy.typing as npt
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
 
 from modax._codegen import compile_device_source
-from modax._kernel_cache import enable_content_cache
 from modax._numba_common import (
     OdeFn,
     as_cuda_device,
@@ -31,7 +28,10 @@ from modax._sensitivity import (
     seed_table,
 )
 from modax._sparse_direct import sparse_direct_solver_for
-from modax._sparsity import dense_jacobian
+from modax._sparsity import CompressedJacobian, Pattern, dense_jacobian
+from modax._target import TARGET, cuda, types
+from modax._target import DeviceFunction as MLIRDispatcher
+
 
 # fmt: off
 # Rodas5P W-transformed coefficients (Steinebach 2023, BIT 63:27).
@@ -287,6 +287,187 @@ def _make_literal_seed_jacobian(
     )
 
 
+_SQRT_EPS = math.sqrt(float(np.finfo(np.float64).eps))
+_CBRT_EPS = float(np.finfo(np.float64).eps) ** (1.0 / 3.0)
+
+
+def make_difference_jacobian(
+    *,
+    ode_write: MLIRDispatcher,
+    structure: CompressedJacobian,
+    pattern: Pattern | None,
+    clear_matrix: MLIRDispatcher,
+    lu_dtype: type,
+    n_params: int,
+    context: int,
+    coupling: int = 0,
+) -> MLIRDispatcher:
+    """The Jacobian writer of the CPU target: forward differences of ``ode_write``.
+
+    The contract of :func:`_make_literal_seed_jacobian`'s writer (``-df/dy``
+    into the layout's slots of ``lu``, ``df/dt`` into ``dT``, and with
+    ``coupling`` the rates ``df/dp . p_seed[k]`` into ``coup``) without Enzyme.
+    The colouring is used the same way: the columns of a group share no row,
+    so one right-hand side evaluated with the whole group perturbed yields
+    every entry of the group, ``n_colours + 2`` evaluations a step with the
+    one at the base point.
+
+    Column ``c`` is stepped by ``sqrt(eps) max(|y_c|, typical)``: the
+    forward-difference step for a component of size ``|y_c|``, with
+    ``typical`` the size of a component that is zero or far below it. Without
+    a floor of that kind a small component is stepped by so little that the
+    difference drowns in the rounding of ``f``, whose other terms need not be
+    small: an entry for a state of size 1e-6 beside a forcing term of order
+    one is wrong in the third digit. Each entry is divided by the step its
+    own column took, which is why this is written against the pattern rather
+    than as a directional derivative along the group's indicator. Time is
+    stepped by ``sqrt(eps) max(|t|, scale)``.
+
+    ``typical`` and the time ``scale`` are not arguments, so that the kernels
+    call this writer as they call Enzyme's. They are read from the parameter
+    row at ``context`` and ``context + 1``, where the CPU launch puts
+    ``atol / rtol`` and the first step
+    (:py:obj:`ensemble_driver <modax._target.ensemble_driver>`).
+
+    Forward differences at ``sqrt(eps)`` leave each entry with rounding noise
+    of about ``1e-8`` of its size, which changes with the last digit of the
+    input. With the float64 linear solve that is what limits how reproducible
+    a solve is: a parameter moved by one unit in its last place moves a
+    Robertson solution by ``1e-10`` (``1e-15`` with the exact Jacobian in this
+    writer's place). With the float32 solve the noise is not what limits it:
+    the same change moves Robertson by ``1e-7`` whether the Jacobian is
+    differenced or exact, because the rounding of the matrix and of every
+    stage's right-hand side to float32 flips with the input too.
+
+    The step can land where the function has no value. RECFAST freezes helium
+    below ``x_He = 1e-8``, where its rate equation would overflow at late
+    times; a state resting just under that guard was stepped over it, the
+    probe returned NaN, and with a NaN in the matrix every step was rejected
+    until ``max_steps`` ran out. A group whose difference comes out
+    non-finite is therefore differenced again with the step reversed, which
+    stays on the state's own side of such a guard. For the same reason the
+    step stays as small as rounding allows: a central difference, with a
+    step four hundred times wider, crossed that guard far more often.
+
+    A coupling direction is a difference along ``p_seed[k]``, central, with a
+    step that moves no parameter by more than ``eps**(1/3)`` of its size (a
+    parameter that is zero counted as the smallest nonzero one the direction
+    touches). A direction that is all zero costs nothing.
+
+    With no pattern every column is its own colour and every row an entry.
+    """
+    n_vars, n_colours = structure.n_vars, structure.n_colours
+    rows_of = (
+        tuple(tuple(range(n_vars)) for _ in range(n_vars))
+        if pattern is None
+        else tuple(
+            tuple(r for r, cols in enumerate(pattern) if c in cols)
+            for c in range(n_vars)
+        )
+    )
+    groups: list[list[int]] = [[] for _ in range(n_colours)]
+    for c, g in enumerate(structure.colour):
+        groups[g].append(c)
+    entries = [[(r, c) for c in group for r in rows_of[c]] for group in groups]
+    col_start = np.cumsum([0, *(len(g) for g in groups)]).astype(np.int32)
+    col_index = np.array([c for g in groups for c in g], dtype=np.int32)
+    ent_start = np.cumsum([0, *(len(e) for e in entries)]).astype(np.int32)
+    ent_row = np.array([r for e in entries for r, _ in e], dtype=np.int32)
+    ent_col = np.array([c for e in entries for _, c in e], dtype=np.int32)
+    ent_slot = np.array(
+        [structure.slot(r, c) for e in entries for r, c in e], dtype=np.int32
+    )
+
+    @cuda.jit(device=True)
+    def write_state_and_time(y_local, t, p_row, lu, dT, base):
+        moved = cuda.local.array(n_vars, types.float64)
+        y_moved = cuda.local.array(n_vars, types.float64)
+        clear_matrix(lu)
+        ode_write(y_local, t, p_row, base)
+        typical = p_row[context]
+        for j in range(n_vars):
+            y_moved[j] = y_local[j]
+        for g in range(n_colours):
+            sign = 1.0
+            for attempt in range(2):
+                for a in range(col_start[g], col_start[g + 1]):
+                    c = col_index[a]
+                    y_moved[c] = y_local[c] + sign * _SQRT_EPS * max(
+                        abs(y_local[c]), typical
+                    )
+                ode_write(y_moved, t, p_row, moved)
+                finite = True
+                for a in range(ent_start[g], ent_start[g + 1]):
+                    c = ent_col[a]
+                    r = ent_row[a]
+                    # the step taken, after rounding into y_moved
+                    entry = -(moved[r] - base[r]) / (y_moved[c] - y_local[c])
+                    finite = finite and math.isfinite(entry)
+                    lu[ent_slot[a]] = lu_dtype(entry)
+                for a in range(col_start[g], col_start[g + 1]):
+                    c = col_index[a]
+                    y_moved[c] = y_local[c]
+                if finite:
+                    break
+                sign = -1.0
+        t_moved = t + _SQRT_EPS * max(abs(t), p_row[context + 1])
+        ode_write(y_local, t_moved, p_row, moved)
+        for j in range(n_vars):
+            dT[j] = (moved[j] - base[j]) / (t_moved - t)
+
+    if not coupling:
+
+        @cuda.jit(device=True)
+        def write_negated_jacobian(y_local, t, p_row, lu, dT):
+            base = cuda.local.array(n_vars, types.float64)
+            write_state_and_time(y_local, t, p_row, lu, dT, base)
+
+        return write_negated_jacobian
+
+    @cuda.jit(device=True)
+    def write_negated_jacobian_and_coupling(y_local, t, p_row, lu, dT, p_seed, coup):
+        base = cuda.local.array(n_vars, types.float64)
+        ahead = cuda.local.array(n_vars, types.float64)
+        behind = cuda.local.array(n_vars, types.float64)
+        p_moved = cuda.local.array(n_params + 2, types.float64)
+        write_state_and_time(y_local, t, p_row, lu, dT, base)
+        for j in range(n_params + 2):
+            p_moved[j] = p_row[j]
+        for k in range(coupling):
+            smallest = 0.0
+            for j in range(n_params):
+                size = abs(p_row[j])
+                if p_seed[k, j] != 0.0 and size > 0.0:
+                    if smallest == 0.0 or size < smallest:
+                        smallest = size
+            if smallest == 0.0:
+                smallest = 1.0
+            steepest = 0.0
+            for j in range(n_params):
+                if p_seed[k, j] != 0.0:
+                    size = abs(p_row[j])
+                    steepest = max(
+                        steepest, abs(p_seed[k, j]) / (size if size > 0.0 else smallest)
+                    )
+            if steepest == 0.0 or not math.isfinite(steepest):
+                for r in range(n_vars):
+                    coup[k, r] = 0.0
+                continue
+            h = _CBRT_EPS / steepest
+            for j in range(n_params):
+                p_moved[j] = p_row[j] + h * p_seed[k, j]
+            ode_write(y_local, t, p_moved, ahead)
+            for j in range(n_params):
+                p_moved[j] = p_row[j] - h * p_seed[k, j]
+            ode_write(y_local, t, p_moved, behind)
+            for j in range(n_params):
+                p_moved[j] = p_row[j]
+            for r in range(n_vars):
+                coup[k, r] = (ahead[r] - behind[r]) * (0.5 / h)
+
+    return write_negated_jacobian_and_coupling
+
+
 @functools.cache
 def make_kernel(
     ode_fn: OdeFn, n_vars: int, n_params: int, options: KernelOptions
@@ -450,20 +631,31 @@ def make_kernel(
     # this kernel at the register cap with a 13 KB spill frame. Several seeds
     # go into each call (SEED_BATCH) so the sweeps' shared primal is computed
     # once, and the stores are literal too, one per entry the colour holds.
-    write_negated_jacobian = _make_literal_seed_jacobian(
-        n_vars=n_vars,
-        n_params=n_params,
-        n_colours=n_colours,
-        store_table=store_table,
-        namespace=dict(
-            cuda=cuda,
-            float64=types.float64,
-            tangent_of=tangent_of,
-            colour_seeds=colour_seeds,
+    if TARGET == "cpu":
+        write_negated_jacobian = make_difference_jacobian(
+            ode_write=make_cuda_local_vector_writer(ode_fn, n_vars),
+            structure=structure,
+            pattern=sparsity,
             clear_matrix=clear_matrix,
             lu_dtype=lu_dtype,
-        ),
-    )
+            n_params=n_params,
+            context=n_params,
+        )
+    else:
+        write_negated_jacobian = _make_literal_seed_jacobian(
+            n_vars=n_vars,
+            n_params=n_params,
+            n_colours=n_colours,
+            store_table=store_table,
+            namespace=dict(
+                cuda=cuda,
+                float64=types.float64,
+                tangent_of=tangent_of,
+                colour_seeds=colour_seeds,
+                clear_matrix=clear_matrix,
+                lu_dtype=lu_dtype,
+            ),
+        )
 
     # --- one Rosenbrock stage, state row plus any sensitivity rows -----------
     if spec is None:
@@ -957,6 +1149,8 @@ def make_kernel(
         rejected_out[i] = rejected
         loop_out[i] = n_steps
 
-    if options.cache:
+    if options.cache and TARGET == "cuda":
+        from modax._kernel_cache import enable_content_cache
+
         enable_content_cache(kernel)
     return kernel, tpb

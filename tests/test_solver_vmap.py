@@ -8,14 +8,14 @@ jax.config.update("jax_enable_x64", True)
 
 def _have_cuda() -> bool:
     try:
-        from numba_cuda_mlir import cuda
+        from modax._target import cuda
     except ImportError:
         return False
     return bool(cuda.is_available())
 
 
 def _build_numba_callbacks():
-    from numba_cuda_mlir import cuda
+    from modax._target import cuda
 
     @cuda.jit(device=True)
     def decay_device(y, t, p):

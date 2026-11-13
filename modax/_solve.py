@@ -18,7 +18,8 @@ from modax._jax_common import (
     make_custom_vmap_solver,
     prepare_inputs,
 )
-from modax._jax_numba_custom_call import CudaLaunch, make_launch
+from modax._jax_numba_custom_call import CpuLaunch, CudaLaunch, make_launch
+from modax._target import TARGET, ensemble_driver
 from modax._methods import Auto, Method, Rodas5P, Tsit5
 from modax._numba_common import (
     SOLVER_ARGTYPES,
@@ -329,7 +330,7 @@ def _run(
 @functools.cache
 def _make_jax_launch(
     system: System, n: int, n_vars: int, n_params: int, options: KernelOptions
-) -> CudaLaunch:
+) -> CudaLaunch | CpuLaunch:
     """Compile, load and size the kernel behind one ensemble launch."""
     if isinstance(system, SplitHierarchy):
         kernel, tpb = make_split_kernel(
@@ -341,6 +342,8 @@ def _make_jax_launch(
         kernel, tpb = _tsit5.make_kernel(system, n, n_vars, options)
     else:
         kernel, tpb = _rodas5P.make_kernel(system, n_vars, n_params, options)
+    if TARGET == "cpu":
+        return CpuLaunch(ensemble_driver(kernel))
     return make_launch(
         kernel, SOLVER_ARGTYPES, grid=(n + tpb - 1) // tpb, block=(tpb, 1, 1)
     )
