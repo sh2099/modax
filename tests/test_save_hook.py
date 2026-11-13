@@ -14,6 +14,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from modax import _target
 from modax._target import cuda
 
 from modax import Rodas5P, Tsit5, solve
@@ -167,11 +168,13 @@ def test_quantities_differentiate_like_the_history(quantities, n_out, method):
             lambda a, p: _over_history(quantities, n_out, a, p, method), argnums=argnum
         )(y0, params)
         # Each trajectory's quantities depend on its own row only.
+        # The CPU target's derivatives are differences, good to about 1e-8 of
+        # the quantities' scale: an entry passing through zero misses 1e-9.
         np.testing.assert_allclose(
             np.asarray(hooked)[rows, :, :, rows],
             np.asarray(expected)[rows, :, :, rows],
             rtol=1e-6,
-            atol=1e-9,
+            atol=1e-8 if _target.TARGET == "cpu" else 1e-9,
         )
 
 
