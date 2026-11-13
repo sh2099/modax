@@ -301,6 +301,7 @@ def make_difference_jacobian(
     n_params: int,
     context: int,
     coupling: int = 0,
+    slot_of: Callable[[int, int], int] | None = None,
 ) -> MLIRDispatcher:
     """The Jacobian writer of the CPU target: forward differences of ``ode_write``.
 
@@ -355,8 +356,12 @@ def make_difference_jacobian(
     touches). A direction that is all zero costs nothing.
 
     With no pattern every column is its own colour and every row an entry.
+    ``slot_of(row, col)`` places an entry where the layout is not the
+    structure's own (a pattern coloured onto a dense matrix).
     """
     n_vars, n_colours = structure.n_vars, structure.n_colours
+    if slot_of is None:
+        slot_of = structure.slot
     rows_of = (
         tuple(tuple(range(n_vars)) for _ in range(n_vars))
         if pattern is None
@@ -375,7 +380,7 @@ def make_difference_jacobian(
     ent_row = np.array([r for e in entries for r, _ in e], dtype=np.int32)
     ent_col = np.array([c for e in entries for _, c in e], dtype=np.int32)
     ent_slot = np.array(
-        [structure.slot(r, c) for e in entries for r, c in e], dtype=np.int32
+        [slot_of(r, c) for e in entries for r, c in e], dtype=np.int32
     )
 
     @cuda.jit(device=True)

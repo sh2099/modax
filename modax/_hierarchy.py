@@ -89,7 +89,12 @@ from modax._methods import (
     method_parts,
     option_or,
 )
-from modax._numba_common import SAFETY, PIDGains, as_cuda_device
+from modax._numba_common import (
+    SAFETY,
+    PIDGains,
+    as_cuda_device,
+    make_cuda_local_vector_writer,
+)
 from modax._sensitivity import (
     SensitivitySpec,
     make_quantity_second_tangent,
@@ -1301,23 +1306,36 @@ def _block_functions(
         def clear(lu):
             pass
 
-    jac = R._make_literal_seed_jacobian(
-        n_vars=n,
-        n_params=P_LOCAL,
-        n_colours=structure.n_colours,
-        store_table=store,
-        namespace=dict(
-            cuda=cuda,
-            float64=types.float64,
-            tangent_of=tangent,
-            colour_seeds=structure.seed_table(P_LOCAL),
+    if TARGET == "cpu":
+        jac = R.make_difference_jacobian(
+            ode_write=make_cuda_local_vector_writer(rhs, n),
+            structure=structure,
+            pattern=bp.pattern,
             clear_matrix=clear,
             lu_dtype=lu_dtype,
-        ),
-        inline="never",
-        batch=structure.n_colours + 1 + n_reads,
-        coupling=n_reads,
-    )
+            n_params=P_LOCAL,
+            context=P_LOCAL,
+            coupling=n_reads,
+            slot_of=slots.slot,
+        )
+    else:
+        jac = R._make_literal_seed_jacobian(
+            n_vars=n,
+            n_params=P_LOCAL,
+            n_colours=structure.n_colours,
+            store_table=store,
+            namespace=dict(
+                cuda=cuda,
+                float64=types.float64,
+                tangent_of=tangent,
+                colour_seeds=structure.seed_table(P_LOCAL),
+                clear_matrix=clear,
+                lu_dtype=lu_dtype,
+            ),
+            inline="never",
+            batch=structure.n_colours + 1 + n_reads,
+            coupling=n_reads,
+        )
 
     AUTO = meth.kind == "auto"
     if AUTO:
@@ -2065,7 +2083,9 @@ def _emit_kernel(
     w(1, "times = times_all[t_row : t_row + n_save]")
     w(1, "tf = times[n_save - 1]")
     w(1, "dt_init = dt0 if dt0 > 0.0 else (tf - times[0]) * 1e-6")
-    w(1, f"p_local = cuda.local.array({P}, np.float64)")
+    # On the CPU the row ends with the two columns the launch appends for the
+    # finite-difference Jacobian (modax._target.ensemble_driver).
+    w(1, f"p_local = cuda.local.array({P + (2 if TARGET == 'cpu' else 0)}, np.float64)")
     w(1, f"pbuf = cuda.local.array({P}, np.float64)")
     w(
         1,
@@ -2081,6 +2101,9 @@ def _emit_kernel(
     w(2, "p_local[c] = 0.0")
     w(1, f"for c in range({n_params}):")
     w(2, "p_local[c] = params[i, c]")
+    if TARGET == "cpu":
+        w(1, f"p_local[{P}] = params[i, {n_params}]")
+        w(1, f"p_local[{P + 1}] = params[i, {n_params + 1}]")
     for bp in plan.blocks:
         if bp.hslot >= 0:
             w(1, f"p_local[{bp.hslot + 1}] = 1.0")
