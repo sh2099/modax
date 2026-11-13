@@ -16,8 +16,13 @@ the part along the parameters, and each part is differenced with a step sized
 for its own variables:
 
 * the state-and-time part moves no state by more than a fraction ``delta`` of
-  its size, with a state smaller than a thousandth of the largest counted as
-  that large, and time by no more than ``delta max(|t|, 1)``;
+  its size, and time by no more than ``delta`` of its own. A state far below
+  the others, or below the size at which the solve's absolute tolerance takes
+  over from the relative one, is counted as that large, and time near zero as
+  large as the solve's first step. The last two come from the launch, in the
+  two columns it appends to the parameter row
+  (:py:obj:`ensemble_driver <modax._target.ensemble_driver>`), so ``p`` here
+  is always that row or a copy that keeps them;
 * the parameter part moves no parameter by more than ``delta |p_j|``. A
   parameter that is exactly zero has no size of its own and is counted as the
   smallest nonzero one the direction touches: small enough not to disturb
@@ -56,38 +61,82 @@ SMALL_COMPONENT = 1.0e-3
 """A state below this fraction of the largest is stepped as if it were this large (first order)."""
 
 
-def _step_rules(n_vars: int, n_params: int) -> tuple[DeviceFunction, DeviceFunction]:
-    """``flow_step(y, t, dy, dt, floor, delta)`` and ``param_step(p, dp, delta)``.
+_PARAMETER_GROUPS: dict[tuple[object, int], tuple[int, ...]] = {}
+
+
+def set_parameter_groups(fn: object, n_params: int, groups: tuple[int, ...]) -> None:
+    """Declare which of ``fn``'s parameters are sized together.
+
+    ``groups[j]`` is a label, and parameters with the same label are counted
+    as large as the largest of them. The hierarchy uses it for the six
+    Hermite coefficients of one upstream quantity: the quantity's value at
+    either end of a step passes through zero while its other coefficients do
+    not, and a step sized by that value alone would drown the difference in
+    rounding. Declared before the function's derivatives are built.
+    """
+    _PARAMETER_GROUPS[(fn, n_params)] = tuple(int(g) for g in groups)
+
+
+def parameter_groups(fn: object, n_params: int) -> tuple[int, ...]:
+    """The labels :func:`set_parameter_groups` gave, or every parameter its own."""
+    return _PARAMETER_GROUPS.get((fn, n_params), tuple(range(n_params)))
+
+
+def step_rules(
+    n_vars: int, n_params: int, groups: tuple[int, ...] | None = None
+) -> tuple[DeviceFunction, DeviceFunction]:
+    """``flow_step(y, t, dy, dt, floor, time_scale, delta)`` and ``param_step(p, dp, delta)``.
 
     The largest step along a direction that keeps every variable within
-    ``delta`` of its own size, or zero for a direction that is zero.
+    ``delta`` of its own size, or zero for a direction that is zero. A
+    parameter's size is the largest magnitude in its group (``groups``), and
+    where that is zero the smallest nonzero size the direction touches.
     """
+    labels = tuple(range(n_params)) if groups is None else tuple(groups)
+    members: dict[int, list[int]] = {}
+    for j, label in enumerate(labels):
+        members.setdefault(label, []).append(j)
+    order = [members[labels[j]] for j in range(n_params)]
+    start = np.cumsum([0, *(len(m) for m in order)]).astype(np.int32)
+    member = np.array([i for m in order for i in m], dtype=np.int32)
+    if n_params == 0:
+        member = np.zeros(1, dtype=np.int32)
 
     @cuda.jit(device=True)
-    def flow_step(y, t, dy, dt, floor, delta):
-        steepest = abs(dt) / max(abs(t), 1.0)
+    def flow_step(y, t, dy, dt, floor, time_scale, delta):
+        steepest = abs(dt) / max(abs(t), time_scale)
         for j in range(n_vars):
             if dy[j] != 0.0:
                 steepest = max(steepest, abs(dy[j]) / max(abs(y[j]), floor))
         return delta / steepest if steepest > 0.0 else 0.0
 
     @cuda.jit(device=True)
+    def size_of(p, j):
+        size = 0.0
+        for a in range(start[j], start[j + 1]):
+            size = max(size, abs(p[member[a]]))
+        return size
+
+    @cuda.jit(device=True)
     def param_step(p, dp, delta):
         smallest = 0.0
         for j in range(n_params):
-            size = abs(p[j])
-            if dp[j] != 0.0 and size > 0.0 and (smallest == 0.0 or size < smallest):
-                smallest = size
+            if dp[j] != 0.0:
+                size = size_of(p, j)
+                if size > 0.0 and (smallest == 0.0 or size < smallest):
+                    smallest = size
         if smallest == 0.0:
             smallest = 1.0
         steepest = 0.0
         for j in range(n_params):
             if dp[j] != 0.0:
-                size = abs(p[j])
+                size = size_of(p, j)
                 steepest = max(
                     steepest, abs(dp[j]) / (size if size > 0.0 else smallest)
                 )
-        return delta / steepest if steepest > 0.0 else 0.0
+        if steepest > 0.0 and steepest < np.inf:
+            return delta / steepest
+        return 0.0
 
     return flow_step, param_step
 
@@ -98,7 +147,7 @@ def _largest(n_vars: int) -> DeviceFunction:
         size = 0.0
         for j in range(n_vars):
             size = max(size, abs(y[j]))
-        return size if size > 0.0 else 1.0
+        return size
 
     return largest
 
@@ -119,7 +168,7 @@ def difference_tangent(
     whose direction is zero costs none.
     """
     fn_device = as_cuda_device(fn)
-    flow_step, param_step = _step_rules(n_vars, n_params)
+    flow_step, param_step = step_rules(n_vars, n_params, parameter_groups(fn, n_params))
     largest_of = _largest(n_vars)
     delta = FIRST_ORDER_STEP
     # a caller's row may carry columns past the function's own
@@ -136,7 +185,8 @@ def difference_tangent(
         for j in range(n_out):
             out[j] = 0.0
 
-        h = flow_step(y, t, dy, dt, SMALL_COMPONENT * largest_of(y), delta)
+        floor = max(SMALL_COMPONENT * largest_of(y), p[n_params])
+        h = flow_step(y, t, dy, dt, floor, p[n_params + 1], delta)
         if h > 0.0:
             for j in range(n_vars):
                 y_moved[j] = y[j] + h * dy[j]
@@ -190,7 +240,7 @@ def difference_second_tangent(
     """
     fn_device = as_cuda_device(fn)
     first = difference_tangent(fn, n_out, n_vars, n_params)
-    flow_step, param_step = _step_rules(n_vars, n_params)
+    flow_step, param_step = step_rules(n_vars, n_params, parameter_groups(fn, n_params))
     largest_of = _largest(n_vars)
     delta = SECOND_ORDER_STEP
     p_size = n_params + 2
@@ -210,12 +260,13 @@ def difference_second_tangent(
 
     @cuda.jit(device=True)
     def second(out, y, t, p, u_y, u_t, u_p, v_y, v_t, v_p, w_y, w_t, w_p):
-        floor = largest_of(y)
+        floor = max(largest_of(y), p[n_params])
+        time_scale = p[n_params + 1]
         for j in range(n_out):
             out[j] = 0.0
-        b = flow_step(y, t, v_y, v_t, floor, delta)
+        b = flow_step(y, t, v_y, v_t, floor, time_scale, delta)
         if b > 0.0:
-            a = flow_step(y, t, u_y, u_t, floor, delta)
+            a = flow_step(y, t, u_y, u_t, floor, time_scale, delta)
             same = u_t == v_t
             for j in range(n_vars):
                 same = same and u_y[j] == v_y[j]

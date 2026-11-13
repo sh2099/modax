@@ -79,6 +79,7 @@ from modax._target import DeviceFunction as MLIRDispatcher
 
 from modax import _tsit5 as T
 from modax._codegen import compile_device_source
+from modax._differences import set_parameter_groups
 from modax._methods import (
     TSIT5_STABILITY_SIZE,
     Auto,
@@ -1017,6 +1018,19 @@ def _block_functions(
     lu_dtype = np.float32 if meth.lu_fp32 else np.float64
     rhs = _wrap_rhs(plan, bp)
     out_fn = _wrap_outputs(plan, bp)
+    # The six Hermite coefficients of a quantity are sized together where
+    # derivatives are differences (modax._differences.set_parameter_groups).
+    groups = list(range(P_LOCAL))
+    for up in plan.blocks:
+        if up.hslot >= 0:
+            for j in range(up.block.n_quantities):
+                first = hermite_slot(up.hslot, j)
+                for c in range(first, first + 6):
+                    groups[c] = first
+    if TARGET == "cpu":
+        set_parameter_groups(rhs, P_LOCAL, tuple(groups))
+        if out_fn is not None:
+            set_parameter_groups(out_fn, P_LOCAL, tuple(groups))
     tangent = make_tangent(rhs, n, P_LOCAL)
     # None where the block has no use for them; the device code calls them
     # only in branches it compiles for blocks that do, which ty cannot see.
@@ -1317,6 +1331,7 @@ def _block_functions(
             context=P_LOCAL,
             coupling=n_reads,
             slot_of=slots.slot,
+            groups=tuple(groups),
         )
     else:
         jac = R._make_literal_seed_jacobian(

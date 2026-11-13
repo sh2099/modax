@@ -1,11 +1,9 @@
-"""The CPU target: the same kernels under plain numba, with finite-difference Jacobians.
+"""The CPU target: the same kernels under plain numba, with differenced derivatives.
 
-Everything else in the suite runs on whichever target the machine has; what
-is checked here is what only the CPU target does. Its Jacobian writer is
-compared with ``jax.jacfwd`` in both layouts (the dense grid and the sparse
-factorisation's packed slots); the solves are compared with SciPy's
-integrators, which share nothing with modax; and the things the target does
-not have are checked to fail loudly rather than quietly.
+Everything else in the suite runs on whichever target the machine has. What is
+checked here is what only the CPU target does: its Jacobian writer and its
+stand-ins for Enzyme's sweeps against JAX autodiff, the launch loop, and the
+choice of target.
 """
 
 import math
@@ -16,11 +14,16 @@ import numpy as np
 import pytest
 from scipy.integrate import solve_ivp
 
-from modax import _target, tsit5
+from modax import Rodas5P, Tsit5, _target, solve
+from modax._differences import (
+    difference_second_tangent,
+    difference_tangent,
+    set_parameter_groups,
+)
 from modax._numba_common import make_cuda_local_vector_writer
+from modax._rodas5P import make_difference_jacobian
 from modax._sparse_direct import sparse_direct_solver_for
 from modax._sparsity import dense_jacobian, normalize_sparsity
-from modax.rodas5P import _make_difference_jacobian, quantity_hook, solve
 
 jax.config.update("jax_enable_x64", True)
 
@@ -28,35 +31,45 @@ pytestmark = pytest.mark.skipif(
     _target.TARGET != "cpu", reason="checks of the CPU target"
 )
 
-N_CHAIN = 12
+N = 6
+N_P = 3
+TYPICAL = 1.0e-2
+TIME_SCALE = 1.0e-3
 
 
 def chain(y, t, p):
     """A nonlinear lower-bidiagonal chain with explicit time dependence."""
     return (
-        -p[0] * y[0] + math.sin(t),
-        p[0] * y[0] - (p[0] + 0.1) * y[1] * (1.0 + 0.01 * y[1]),
-        p[0] * y[1] - (p[0] + 0.2) * y[2] * (1.0 + 0.01 * y[2]),
-        p[0] * y[2] - (p[0] + 0.3) * y[3] * (1.0 + 0.01 * y[3]),
-        p[0] * y[3] - (p[0] + 0.4) * y[4] * (1.0 + 0.01 * y[4]),
-        p[0] * y[4] - (p[0] + 0.5) * y[5] * (1.0 + 0.01 * y[5]),
-        p[0] * y[5] - (p[0] + 0.6) * y[6] * (1.0 + 0.01 * y[6]),
-        p[0] * y[6] - (p[0] + 0.7) * y[7] * (1.0 + 0.01 * y[7]),
-        p[0] * y[7] - (p[0] + 0.8) * y[8] * (1.0 + 0.01 * y[8]),
-        p[0] * y[8] - (p[0] + 0.9) * y[9] * (1.0 + 0.01 * y[9]),
-        p[0] * y[9] - (p[0] + 1.0) * y[10] * (1.0 + 0.01 * y[10]),
-        p[0] * y[10] - (p[0] + 1.1) * y[11] * (1.0 + 0.01 * y[11]),
+        -p[0] * y[0] + math.sin(t) * p[2],
+        p[0] * y[0] - (p[1] + 0.1) * y[1] * (1.0 + 0.01 * y[1]),
+        p[0] * y[1] - (p[1] + 0.2) * y[2] * (1.0 + 0.01 * y[2]) + math.cos(p[2] * t),
+        p[0] * y[2] - (p[1] + 0.3) * y[3] * (1.0 + 0.01 * y[3]),
+        p[0] * y[3] - (p[1] + 0.4) * y[4] * (1.0 + 0.01 * y[4]),
+        p[0] * y[4] - (p[1] + 0.5) * y[5] * math.exp(0.1 * y[5] * t),
     )
 
 
 def chain_jax(y, t, p):
-    out = [-p[0] * y[0] + jnp.sin(t)]
-    for i in range(1, N_CHAIN):
-        out.append(p[0] * y[i - 1] - (p[0] + 0.1 * i) * y[i] * (1.0 + 0.01 * y[i]))
-    return jnp.stack(out)
+    return jnp.stack(
+        [
+            -p[0] * y[0] + jnp.sin(t) * p[2],
+            p[0] * y[0] - (p[1] + 0.1) * y[1] * (1.0 + 0.01 * y[1]),
+            p[0] * y[1] - (p[1] + 0.2) * y[2] * (1.0 + 0.01 * y[2]) + jnp.cos(p[2] * t),
+            p[0] * y[2] - (p[1] + 0.3) * y[3] * (1.0 + 0.01 * y[3]),
+            p[0] * y[3] - (p[1] + 0.4) * y[4] * (1.0 + 0.01 * y[4]),
+            p[0] * y[4] - (p[1] + 0.5) * y[5] * jnp.exp(0.1 * y[5] * t),
+        ]
+    )
 
 
-CHAIN_PATTERN = np.eye(N_CHAIN, dtype=bool) | np.eye(N_CHAIN, k=-1, dtype=bool)
+Y = np.array([1.3, -0.7, 2.0e-6, 0.4, 0.0, 1.1])
+T = 0.37
+P = np.array([2.0, 0.5, 1.5])
+
+
+def row(p):
+    """A parameter row as the launch hands it to a kernel: two more columns."""
+    return np.concatenate([p, [TYPICAL, TIME_SCALE]])
 
 
 def robertson(y, t, p):
@@ -67,347 +80,274 @@ def robertson(y, t, p):
     )
 
 
-def van_der_pol(y, t, p):
-    return (y[1], p[0] * ((1.0 - y[0] * y[0]) * y[1] - y[0]))
+ROBERTSON_Y0 = np.array([[1.0, 0.0, 0.0]])
+ROBERTSON_P = np.array([[0.04, 1.0e4, 3.0e7]])
+ROBERTSON_T = np.array([0.0, 1.0, 1.0e2, 1.0e4])
 
 
-def forced_decay(y, t, p):
-    """``y' = -lam (y - sin t) + cos t``: the solution through ``y(0) = 0`` is ``sin t``."""
-    return (-p[0] * (y[0] - math.sin(t)) + math.cos(t),)
-
-
-def lorenz(y, t, p):
-    return (
-        p[0] * (y[1] - y[0]),
-        y[0] * (p[1] - y[2]) - y[1],
-        y[0] * y[1] - p[2] * y[2],
-    )
-
-
-ROBERTSON_TIMES = np.array([0.0, 1e-6, 1e-2, 1e2, 1e5])
-ROBERTSON_Y0 = np.array([1.0, 0.0, 0.0])
-ROBERTSON_P = np.array([0.04, 1e4, 3e7])
-
-
-def _reference(fn, y0, times, p, method="Radau"):
-    solution = solve_ivp(
-        lambda t, y: np.array(fn(y, t, p)),
-        (times[0], times[-1]),
-        y0,
-        method=method,
-        t_eval=times,
-        rtol=1e-11,
-        atol=1e-13,
-    )
-    assert solution.success
-    return solution.y.T
-
-
-# --- the Jacobian writer -----------------------------------------------------------------
+# --- the Jacobian writer ---------------------------------------------------------------
 
 
 @pytest.mark.parametrize("layout", ["grid", "packed"])
 def test_difference_jacobian_matches_autodiff(layout):
-    """``-df/dy`` in the layout's slots and ``df/dt``, against ``jax.jacfwd``.
-
-    The state mixes sizes and holds exact zeros, which the step-size floor is
-    there for; the right-hand side is nonlinear, so the differences are not
-    exact and the agreement is the truncation error of a forward difference.
-    """
+    pattern = normalize_sparsity(np.tril(np.triu(np.ones((N, N), dtype=bool), -1)), N)
     if layout == "grid":
-        pattern, structure = None, dense_jacobian(N_CHAIN)
-        assert structure.n_colours == N_CHAIN
+        structure, used = dense_jacobian(N), None
     else:
-        pattern = normalize_sparsity(CHAIN_PATTERN, N_CHAIN)
-        structure = sparse_direct_solver_for(pattern, "natural").compressed
-        assert structure.n_colours == 2
-
-    size = structure.size
+        structure = sparse_direct_solver_for(pattern, "amd").compressed
+        used = pattern
 
     @_target.cuda.jit(device=True)
-    def clear_matrix(lu):
-        for i in range(size):
+    def clear(lu):
+        for i in range(lu.shape[0]):
             lu[i] = 0.0
 
-    writer = _make_difference_jacobian(
-        ode_write=make_cuda_local_vector_writer(chain, N_CHAIN),
+    writer = make_difference_jacobian(
+        ode_write=make_cuda_local_vector_writer(chain, N),
         structure=structure,
-        pattern=pattern,
-        clear_matrix=clear_matrix,
+        pattern=used,
+        clear_matrix=clear,
         lu_dtype=np.float64,
+        n_params=N_P,
+        context=N_P,
     )
-    rng = np.random.default_rng(0)
-    y = rng.normal(size=N_CHAIN) * np.logspace(-6, 2, N_CHAIN)
-    y[3] = y[8] = 0.0
-    t, p = 0.7, np.array([3.0])
-    lu, dT = np.full(structure.size, np.nan), np.empty(N_CHAIN)
-    # rtol = atol: components below unit size are stepped as if of unit size
-    writer(y, t, p, lu, dT, 1e-6, 1e-6, 1e-2)
+    lu = np.full(structure.size, np.nan)
+    dT = np.full(N, np.nan)
+    writer(Y, T, row(P), lu, dT)
+    at = (jnp.asarray(Y), T, jnp.asarray(P))
+    jac = np.asarray(jax.jacfwd(chain_jax)(*at))
+    by_time = np.asarray(jax.jacfwd(chain_jax, argnums=1)(*at))
+    scale = np.abs(jac).max()
+    for r in range(N):
+        columns = range(N) if used is None else used[r]
+        for c in columns:
+            assert abs(-lu[structure.slot(r, c)] - jac[r, c]) < 1e-6 * scale
+    np.testing.assert_allclose(dT, by_time, rtol=1e-6, atol=1e-7)
 
-    expected = np.asarray(jax.jacfwd(chain_jax)(jnp.asarray(y), t, p))
-    expected_dt = np.asarray(jax.jacfwd(chain_jax, argnums=1)(jnp.asarray(y), t, p))
-    rows, cols = np.nonzero(
-        CHAIN_PATTERN if layout == "packed" else np.ones_like(CHAIN_PATTERN)
+
+def test_difference_jacobian_gives_the_rate_along_a_parameter_seed():
+    structure = dense_jacobian(N)
+
+    @_target.cuda.jit(device=True)
+    def clear(lu):
+        pass
+
+    writer = make_difference_jacobian(
+        ode_write=make_cuda_local_vector_writer(chain, N),
+        structure=structure,
+        pattern=None,
+        clear_matrix=clear,
+        lu_dtype=np.float64,
+        n_params=N_P,
+        context=N_P,
+        coupling=2,
     )
-    ours = np.array([-lu[structure.slot(r, c)] for r, c in zip(rows, cols)])
-    scale = np.abs(expected).max(axis=1)[rows]
-    np.testing.assert_array_less(np.abs(ours - expected[rows, cols]) / scale, 1e-6)
-    np.testing.assert_allclose(dT, expected_dt, rtol=1e-6, atol=1e-8)
-    assert np.isfinite(lu).all()  # every slot the factorisation reads was written
+    seeds = np.array([[1.0e-9, 0.0, 3.0e-9], [0.0, 0.0, 0.0]])
+    coup = np.full((2, N), np.nan)
+    writer(Y, T, row(P), np.zeros(structure.size), np.zeros(N), seeds, coup)
+    at = (jnp.asarray(Y), T, jnp.asarray(P))
+    by_p = np.asarray(jax.jacfwd(chain_jax, argnums=2)(*at))
+    np.testing.assert_allclose(coup[0], by_p @ seeds[0], rtol=1e-7, atol=1e-18)
+    np.testing.assert_array_equal(coup[1], 0.0)
 
 
-# --- solves against SciPy ------------------------------------------------------------------
+# --- Enzyme's sweeps, differenced ------------------------------------------------------
+
+DIRECTIONS = {
+    "state": (np.array([0.3, -1.0, 2.0, 0.0, 0.5, 1.0]), 0.0, np.zeros(N_P)),
+    "small state": (np.array([0.0, 0.0, 1.0e-6, 0.0, 0.0, 0.0]), 0.0, np.zeros(N_P)),
+    "time": (np.zeros(N), 1.0, np.zeros(N_P)),
+    "flow": (np.array([0.3, -1.0, 2.0e-6, 0.0, 0.5, 1.0]), 1.0, np.zeros(N_P)),
+    "parameters": (np.zeros(N), 0.0, np.array([1.0, -2.0, 0.5])),
+    "all": (np.array([0.1, 0.2, 0.0, 0.3, 0.0, -0.4]), 0.7, np.array([0.0, 1.0, 0.0])),
+}
+POINT = (jnp.asarray(Y), jnp.asarray(T), jnp.asarray(P))
 
 
-@pytest.mark.parametrize("lu_precision", ["fp32", "fp64"])
-@pytest.mark.parametrize("sparse", [False, True])
-def test_robertson_matches_radau(lu_precision, sparse):
-    hist, stats = solve(
-        robertson,
-        ROBERTSON_Y0,
-        ROBERTSON_TIMES,
-        ROBERTSON_P,
-        rtol=1e-8,
-        atol=1e-10,
-        lu_precision=lu_precision,
-        sparsity=np.ones((3, 3), dtype=bool) if sparse else None,
-        return_stats=True,
-    )
-    reference = _reference(robertson, ROBERTSON_Y0, ROBERTSON_TIMES, ROBERTSON_P)
-    np.testing.assert_allclose(np.asarray(hist)[0], reference, rtol=2e-6, atol=1e-10)
-    assert int(stats["loop_steps"][0]) < 2000
+def _as_jax(direction):
+    return tuple(jnp.asarray(x) for x in direction)
 
 
-def test_error_falls_with_the_tolerance():
-    reference = _reference(robertson, ROBERTSON_Y0, ROBERTSON_TIMES, ROBERTSON_P)
-    errors, in_tolerances, steps = [], [], []
-    for rtol in (1e-4, 1e-6, 1e-8):
-        atol = rtol * 1e-4
-        hist, stats = solve(
-            robertson, ROBERTSON_Y0, ROBERTSON_TIMES, ROBERTSON_P,
-            rtol=rtol, atol=atol, lu_precision="fp64", return_stats=True,
-        )  # fmt: skip
-        difference = np.abs(np.asarray(hist)[0] - reference)
-        errors.append(difference.max())
-        in_tolerances.append(np.max(difference / (atol + rtol * np.abs(reference))))
-        steps.append(int(stats["accepted_steps"][0]))
-    assert errors[0] > errors[1] > errors[2]
-    assert max(in_tolerances) < 50.0
-    assert steps[0] < steps[1] < steps[2]
+def _first(direction):
+    return np.asarray(jax.jvp(chain_jax, POINT, _as_jax(direction))[1])
 
 
-def test_ensemble_is_independent_of_the_threads():
-    """The parallel loop gives each trajectory the answer it gets alone."""
-    mus = np.array([[10.0], [100.0], [1000.0]])
-    y0 = np.array([2.0, 0.0])
-    times = np.linspace(0.0, 20.0, 6)
-    kwargs = {"rtol": 1e-8, "atol": 1e-10, "lu_precision": "fp64"}
-    together = np.asarray(solve(van_der_pol, y0, times, mus, **kwargs))
-    for i, mu in enumerate(mus):
-        alone = np.asarray(solve(van_der_pol, y0, times, mu, **kwargs))
-        np.testing.assert_array_equal(together[i], alone[0])
-        np.testing.assert_allclose(
-            together[i], _reference(van_der_pol, y0, times, mu), rtol=2e-5, atol=1e-7
-        )
+def _second(u, v):
+    def along_u(y, t, p):
+        return jax.jvp(chain_jax, (y, t, p), _as_jax(u))[1]
+
+    return np.asarray(jax.jvp(along_u, POINT, _as_jax(v))[1])
 
 
-def test_stiff_forced_problem_is_accurate_at_the_step_ends():
-    """``df/dt`` by a time difference holds the method's order on a non-autonomous problem."""
-    for rtol in (1e-4, 1e-6, 1e-8):
-        hist, stats = solve(
-            forced_decay, np.zeros(1), np.array([0.0, 3.0]), np.array([1.0e4]),
-            rtol=rtol, atol=rtol, lu_precision="fp64", return_stats=True,
-        )  # fmt: skip
-        assert abs(float(hist[0, -1, 0]) - math.sin(3.0)) < rtol
-        assert int(stats["accepted_steps"][0]) < 60
-
-
-def test_tsit5_matches_an_explicit_reference():
-    times = np.linspace(0.0, 1.0, 5)
-    y0, p = np.array([1.0, 1.0, 1.0]), np.array([10.0, 28.0, 8.0 / 3.0])
-    hist = tsit5.solve(lorenz, y0, times, p, rtol=1e-9, atol=1e-11)
-    reference = _reference(lorenz, y0, times, p, method="DOP853")
-    np.testing.assert_allclose(np.asarray(hist)[0], reference, rtol=1e-6, atol=1e-8)
-
-
-def test_shared_backend_is_the_local_one_on_the_cpu():
-    times = np.linspace(0.0, 1.0, 5)
-    y0, p = np.array([1.0, 1.0, 1.0]), np.array([10.0, 28.0, 8.0 / 3.0])
-    kwargs = {"rtol": 1e-9, "atol": 1e-11}
-    np.testing.assert_array_equal(
-        np.asarray(tsit5.solve(lorenz, y0, times, p, backend="shared", **kwargs)),
-        np.asarray(tsit5.solve(lorenz, y0, times, p, backend="local", **kwargs)),
-    )
-
-
-def inverse_rate_decay(y, t, p):
-    return (-y[0] / p[0],)
-
-
-def test_a_division_by_zero_does_not_cost_the_other_trajectories():
-    """IEEE arithmetic, as on the device: a trajectory that blows up fails alone.
-
-    Under numba's default error model the division raises, and a raise inside
-    the parallel loop ends that thread's share of the ensemble without a word:
-    the trajectories after the bad one came back as untouched zeros. Compiled
-    as the device computes, the bad trajectory's steps are rejected until its
-    step budget runs out and every other one is solved.
-    """
-    n = 64
-    timescale = np.linspace(0.5, 2.0, n)[:, None]
-    timescale[n // 2] = 0.0
-    times = np.array([0.0, 1.0])
-    hist, stats = solve(
-        inverse_rate_decay, np.ones(1), times, timescale,
-        rtol=1e-8, atol=1e-10, lu_precision="fp64", max_steps=200, return_stats=True,
-    )  # fmt: skip
-    hist, good = np.asarray(hist), np.arange(n) != n // 2
-    np.testing.assert_allclose(
-        hist[good, -1, 0], np.exp(-1.0 / timescale[good, 0]), rtol=1e-7
-    )
-    assert int(stats["accepted_steps"][n // 2]) == 0
-    assert int(stats["loop_steps"][n // 2]) == 200
-
-
-# --- the JAX side --------------------------------------------------------------------------
-
-
-def test_solve_traces_under_jit_and_vmap():
-    params = jnp.asarray(ROBERTSON_P) * jnp.linspace(0.9, 1.1, 4)[:, None]
-    kwargs = {"rtol": 1e-8, "atol": 1e-10, "lu_precision": "fp64"}
-
-    def one(p):
-        return solve(robertson, ROBERTSON_Y0, ROBERTSON_TIMES, p, **kwargs)
-
-    together = jax.jit(one)(params)
-    assert together.shape == (4, len(ROBERTSON_TIMES), 3)
-    mapped = jax.vmap(one)(params)
-    np.testing.assert_array_equal(np.asarray(mapped)[:, 0], np.asarray(together))
-
-
-def test_quantity_hook_stores_what_the_history_holds():
-    def total_and_intermediate(y, t, p):
-        return (y[0] + y[1] + y[2], y[1])
-
-    kwargs = {"rtol": 1e-8, "atol": 1e-10, "lu_precision": "fp64"}
-    n_save = len(ROBERTSON_TIMES)
-    hook = quantity_hook(total_and_intermediate, 2, 3, 3)
-    final, rows = solve(
-        robertson, ROBERTSON_Y0, ROBERTSON_TIMES, ROBERTSON_P,
-        save_hook=hook, hook_size=2 * n_save, save_history=False, **kwargs,
-    )  # fmt: skip
-    hist = np.asarray(
-        solve(robertson, ROBERTSON_Y0, ROBERTSON_TIMES, ROBERTSON_P, **kwargs)
-    )
-    stored = np.asarray(rows).reshape(n_save, 2)
-    np.testing.assert_allclose(stored[:, 0], hist[0].sum(axis=1), rtol=1e-13)
-    np.testing.assert_allclose(stored[:, 1], hist[0, :, 1], rtol=1e-13, atol=0.0)
-    assert final.shape == (1, 1, 3)
-    np.testing.assert_array_equal(np.asarray(final)[0, 0], hist[0, -1])
-
-
-# --- derivatives without Enzyme ------------------------------------------------------------
-
-
-def mixed(y, t, p):
-    """Nonlinear in the state, the parameters and the time, with all three coupled."""
-    return (
-        p[0] * y[0] * y[1] + math.sin(t) * y[2] + p[2] * y[0],
-        math.exp(-p[1] * y[1]) * y[2] * y[2] + t * y[0] + p[2] * p[2],
-        y[0] / (1.0 + y[2] * y[2]) + p[0] * p[1] * t * t + p[2] * y[1],
-    )
-
-
-def mixed_jax(y, t, p):
-    return jnp.stack(
-        [
-            p[0] * y[0] * y[1] + jnp.sin(t) * y[2] + p[2] * y[0],
-            jnp.exp(-p[1] * y[1]) * y[2] * y[2] + t * y[0] + p[2] * p[2],
-            y[0] / (1.0 + y[2] * y[2]) + p[0] * p[1] * t * t + p[2] * y[1],
-        ]
-    )
-
-
-# Sizes spread over four decades, one state and one parameter exactly zero.
-MIXED_Y = np.array([3.0e-4, 2.0, 0.0])
-MIXED_T = 0.7
-MIXED_P = np.array([40.0, 0.25, 0.0])
-MIXED_DIRECTIONS = [
-    (np.array([1.0, 0.0, 0.0]), 0.0, np.zeros(3)),
-    (np.array([0.0, 0.0, 1.0]), 0.0, np.zeros(3)),  # along the zero state
-    (np.array([2.0e3, -5.0e-2, 7.0]), 0.0, np.zeros(3)),  # sizes unlike the state's
-    (np.zeros(3), 0.0, np.array([0.0, 1.0, 0.0])),
-    (np.zeros(3), 0.0, np.array([0.0, 0.0, 1.0])),  # along the zero parameter
-    (np.zeros(3), 1.0, np.zeros(3)),
-    (np.array([1.0e2, 0.3, -2.0]), 0.0, np.array([1.0, 0.0, 0.0])),  # a sensitivity's
-]
-
-
-def _directional(fn, y, t, p, direction):
-    dy, dt, dp = direction
-    return jax.jvp(
-        fn,
-        (jnp.asarray(y), jnp.asarray(t), jnp.asarray(p)),
-        (jnp.asarray(dy), jnp.asarray(dt), jnp.asarray(dp)),
-    )[1]
-
-
-@pytest.mark.parametrize("direction", range(len(MIXED_DIRECTIONS)))
-def test_difference_tangent_matches_autodiff(direction):
-    """``Df[u]`` for state, parameter, time and mixed directions, zeros included."""
-    from modax._differences import difference_tangent
-
-    tangent = difference_tangent(mixed, 3, 3, 3)
-    dy, dt, dp = MIXED_DIRECTIONS[direction]
-    out = np.empty(3)
-    tangent(out, MIXED_Y, MIXED_T, MIXED_P, dy, dt, dp)
-    expected = np.asarray(
-        _directional(mixed_jax, MIXED_Y, MIXED_T, MIXED_P, MIXED_DIRECTIONS[direction])
-    )
-    np.testing.assert_allclose(
-        out, expected, rtol=1e-8, atol=1e-9 * np.abs(expected).max()
-    )
+@pytest.mark.parametrize("name", list(DIRECTIONS))
+def test_difference_tangent_matches_autodiff(name):
+    tangent = difference_tangent(chain, N, N, N_P)
+    out = np.full(N, np.nan)
+    tangent(out, Y, T, row(P), *DIRECTIONS[name])
+    exact = _first(DIRECTIONS[name])
+    np.testing.assert_allclose(out, exact, rtol=1e-8, atol=1e-9 * np.abs(exact).max())
 
 
 def test_difference_tangent_reads_only_the_state_of_an_augmented_vector():
-    """A caller hands over its whole ``[y, S]`` row; only the state is the state."""
-    from modax._differences import difference_tangent
-
-    tangent = difference_tangent(mixed, 3, 3, 3)
-    dy, dt, dp = MIXED_DIRECTIONS[-1]
-    alone, within = np.empty(3), np.empty(3)
-    tangent(alone, MIXED_Y, MIXED_T, MIXED_P, dy, dt, dp)
-    augmented = np.concatenate([MIXED_Y, 1.0e9 * np.ones(6)])
-    tangent(within, augmented, MIXED_T, MIXED_P, dy, dt, dp)
-    np.testing.assert_array_equal(within, alone)
+    tangent = difference_tangent(chain, N, N, N_P)
+    out = np.full(N, np.nan)
+    augmented = np.concatenate([Y, np.full(2 * N, np.nan)])
+    tangent(out, augmented, T, row(P), *DIRECTIONS["all"])
+    np.testing.assert_allclose(out, _first(DIRECTIONS["all"]), rtol=1e-8, atol=1e-9)
 
 
-@pytest.mark.parametrize("outer", ["state", "time"])
-def test_difference_second_tangent_matches_autodiff(outer):
-    """``D2f[u, v]`` with ``u`` a sensitivity's direction and ``v`` a stage increment or time."""
-    from modax._differences import difference_second_tangent
+@pytest.mark.parametrize(
+    "u, v, w",
+    [
+        ("state", "state", None),
+        ("parameters", "state", None),
+        ("all", "time", None),
+        ("flow", "flow", None),
+        ("flow", "flow", "state"),
+        ("all", "flow", "all"),
+    ],
+)
+def test_difference_second_tangent_matches_autodiff(u, v, w):
+    second = difference_second_tangent(chain, N, N, N_P)
+    out = np.full(N, np.nan)
+    zero = (np.zeros(N), 0.0, np.zeros(N_P))
+    varies = zero if w is None else DIRECTIONS[w]
+    # the second direction's parameter part is not part of the contract
+    second_direction = (*DIRECTIONS[v][:2], np.zeros(N_P))
+    second(out, Y, T, row(P), *DIRECTIONS[u], *second_direction, *varies)
+    exact = _second(DIRECTIONS[u], second_direction)
+    if w is not None:
+        exact = exact + _first(DIRECTIONS[w])
+    np.testing.assert_allclose(out, exact, rtol=2e-5, atol=2e-6 * np.abs(exact).max())
 
-    second = difference_second_tangent(mixed, 3, 3)
-    u = MIXED_DIRECTIONS[-1]
-    v = (
-        (np.array([1.0e-5, 4.0e-2, 3.0e-3]), 0.0, np.zeros(3))
-        if outer == "state"
-        else (np.zeros(3), 1.0, np.zeros(3))
+
+def crossing(y, t, p):
+    """A quantity read through two coefficients, one of them passing through zero."""
+    return (math.sin(y[0]) * p[3] + p[4], y[1] * t)
+
+
+def crossing_ungrouped(y, t, p):
+    return (math.sin(y[0]) * p[3] + p[4], y[1] * t)
+
+
+def test_grouped_parameters_are_sized_by_the_largest_of_the_group():
+    """A coefficient passing through zero is stepped on the scale of its group.
+
+    Sized on its own it is stepped by ``6e-6`` of ``1e-13``, and the difference
+    of a function of order one over that step is rounding.
+    """
+    p = np.array([1.0, 2.0, 3.0, 1.0e-13, 0.7, TYPICAL, TIME_SCALE])
+    dp = np.array([0.0, 0.0, 0.0, 1.0, 0.0])
+    y = np.array([0.4, 0.2])
+    exact = [math.sin(0.4), 0.0]
+
+    set_parameter_groups(crossing, 5, (0, 1, 2, 3, 3))
+    out = np.full(2, np.nan)
+    difference_tangent(crossing, 2, 2, 5)(out, y, 0.5, p, np.zeros(2), 0.0, dp)
+    np.testing.assert_allclose(out, exact, rtol=1e-8, atol=1e-18)
+
+    difference_tangent(crossing_ungrouped, 2, 2, 5)(
+        out, y, 0.5, p, np.zeros(2), 0.0, dp
     )
-    zero = (np.zeros(3), 0.0, np.zeros(3))
-    out = np.empty(3)
-    second(out, MIXED_Y, MIXED_T, MIXED_P, *u, *v, *zero)
-
-    def along_u(y, t, p):
-        return _directional(mixed_jax, y, t, p, u)
-
-    expected = np.asarray(_directional(along_u, MIXED_Y, MIXED_T, MIXED_P, v))
-    # In units of the term's largest component: an entry far below that is
-    # noise, which is all a Jacobian block that only sets the order needs.
-    assert np.abs(out - expected).max() < 5e-5 * np.abs(expected).max()
+    assert abs(out[0] - exact[0]) > 1e-3
 
 
-# --- which target is chosen ----------------------------------------------------------------
+# --- the launch --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("lu_precision", ["fp32", "fp64"])
+def test_robertson_matches_radau(lu_precision):
+    hist = solve(
+        robertson,
+        ROBERTSON_Y0,
+        ROBERTSON_T,
+        ROBERTSON_P,
+        rtol=1e-8,
+        atol=1e-10,
+        method=Rodas5P(lu_precision=lu_precision),
+    )
+    reference = solve_ivp(
+        lambda t, y: robertson(y, t, ROBERTSON_P[0]),
+        (0.0, ROBERTSON_T[-1]),
+        ROBERTSON_Y0[0],
+        method="Radau",
+        t_eval=ROBERTSON_T,
+        rtol=1e-11,
+        atol=1e-13,
+    ).y.T
+    np.testing.assert_allclose(np.asarray(hist)[0], reference, rtol=2e-6, atol=1e-10)
+
+
+def decay(y, t, p):
+    return (-p[0] * y[0], p[0] * y[0] - y[1])
+
+
+@pytest.mark.parametrize("method", [Rodas5P(lu_precision="fp64"), Tsit5()])
+def test_each_trajectory_gets_the_answer_it_gets_alone(method):
+    """The kernel sees one trajectory per call; the loop must hand each its own rows."""
+    rates = np.linspace(0.5, 3.0, 37)[:, None]
+    y0 = np.column_stack([np.linspace(1.0, 2.0, 37), np.zeros(37)])
+    times = np.array([0.0, 0.5, 1.0])
+    together = np.asarray(solve(decay, y0, times, rates, method=method))
+    for i in (0, 17, 36):
+        alone = np.asarray(
+            solve(decay, y0[i : i + 1], times, rates[i : i + 1], method=method)
+        )
+        np.testing.assert_array_equal(together[i], alone[0])
+    np.testing.assert_allclose(
+        together[:, -1, 0], y0[:, 0] * np.exp(-rates[:, 0]), rtol=1e-6
+    )
+
+
+def reciprocal(y, t, p):
+    return (-y[0] / p[0], y[0] / p[0] - y[1])
+
+
+def test_a_division_by_zero_does_not_cost_the_other_trajectories():
+    """IEEE arithmetic, as on the device: an infinity the controller rejects.
+
+    numba's default error model raises instead, and a raise inside the
+    parallel loop silently ends that thread's share of the ensemble.
+    """
+    n = 64
+    params = np.ones((n, 1))
+    params[5, 0] = 0.0
+    y0 = np.tile([1.0, 0.0], (n, 1))
+    hist = np.asarray(
+        solve(reciprocal, y0, np.array([0.0, 1.0]), params, max_steps=200)
+    )
+    good = np.delete(np.arange(n), 5)
+    np.testing.assert_allclose(hist[good, -1, 0], np.exp(-1.0), rtol=1e-6)
+
+
+def guarded(y, t, p):
+    """Decay beside a component frozen under a guard, past which there is no value."""
+    if y[1] < 1.0e-8:
+        frozen = 0.0
+    else:
+        frozen = math.inf - math.inf
+    return (-p[0] * y[0], frozen)
+
+
+def test_a_difference_step_over_a_guard_is_taken_the_other_way():
+    """A state resting just under a guard is stepped over it by the forward difference.
+
+    The step for a component this small is ``sqrt(eps) atol / rtol = 1.5e-10``,
+    three times the distance to the guard, and the function is NaN beyond it.
+    Left in the matrix, the NaN rejects every step.
+    """
+    y0 = np.array([[1.0, 0.995e-8]])
+    times = np.array([0.0, 1.0, 2.0])
+    hist, stats = solve(
+        guarded, y0, times, np.array([[1.0]]), rtol=1e-5, atol=1e-7, return_stats=True
+    )
+    hist = np.asarray(hist)[0]
+    assert int(stats["rejected_steps"][0]) < 10
+    np.testing.assert_allclose(hist[:, 0], np.exp(-times), rtol=1e-4)
+    np.testing.assert_array_equal(hist[:, 1], y0[0, 1])
+
+
+# --- which target is chosen --------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -443,33 +383,3 @@ def test_a_cpu_stand_in_is_not_numba_cuda(monkeypatch):
     stand_in.__cpu_shim__ = True
     monkeypatch.setitem(sys.modules, "numba_cuda_mlir", stand_in)
     assert "numba_cuda_mlir" in _target._missing_cuda_packages()
-
-
-# --- a probe that leaves the function's domain ---------------------------------------------
-
-
-def guarded(y, t, p):
-    """Decay beside a component frozen under a guard, past which there is no value."""
-    if y[1] < 1.0e-8:
-        frozen = 0.0
-    else:
-        frozen = math.inf - math.inf
-    return (-p[0] * y[0], frozen)
-
-
-def test_a_difference_step_over_a_guard_is_taken_the_other_way():
-    """A state resting just under a guard is stepped over it by the forward difference.
-
-    The step for a component this small is ``sqrt(eps) atol / rtol = 1.5e-10``,
-    three times the distance to the guard, and the function is NaN beyond it.
-    Left in the matrix, the NaN rejects every step.
-    """
-    y0 = np.array([[1.0, 0.995e-8]])
-    times = np.array([0.0, 1.0, 2.0])
-    hist, stats = solve(
-        guarded, y0, times, np.array([[1.0]]), rtol=1e-5, atol=1e-7, return_stats=True
-    )
-    hist = np.asarray(hist)[0]
-    assert int(stats["rejected_steps"][0]) < 10
-    np.testing.assert_allclose(hist[:, 0], np.exp(-times), rtol=1e-4)
-    np.testing.assert_array_equal(hist[:, 1], y0[0, 1])

@@ -14,6 +14,7 @@ import numpy as np
 import numpy.typing as npt
 
 from modax._codegen import compile_device_source
+from modax._differences import step_rules
 from modax._numba_common import (
     OdeFn,
     as_cuda_device,
@@ -302,6 +303,7 @@ def make_difference_jacobian(
     context: int,
     coupling: int = 0,
     slot_of: Callable[[int, int], int] | None = None,
+    groups: tuple[int, ...] | None = None,
 ) -> MLIRDispatcher:
     """The Jacobian writer of the CPU target: forward differences of ``ode_write``.
 
@@ -350,10 +352,9 @@ def make_difference_jacobian(
     step stays as small as rounding allows: a central difference, with a
     step four hundred times wider, crossed that guard far more often.
 
-    A coupling direction is a difference along ``p_seed[k]``, central, with a
-    step that moves no parameter by more than ``eps**(1/3)`` of its size (a
-    parameter that is zero counted as the smallest nonzero one the direction
-    touches). A direction that is all zero costs nothing.
+    A coupling direction is a difference along ``p_seed[k]``, central, with
+    the parameter step of :py:obj:`step_rules <modax._differences.step_rules>`
+    under ``groups``. A direction that is all zero costs nothing.
 
     With no pattern every column is its own colour and every row an entry.
     ``slot_of(row, col)`` places an entry where the layout is not the
@@ -362,6 +363,7 @@ def make_difference_jacobian(
     n_vars, n_colours = structure.n_vars, structure.n_colours
     if slot_of is None:
         slot_of = structure.slot
+    _, param_step = step_rules(n_vars, n_params, groups)
     rows_of = (
         tuple(tuple(range(n_vars)) for _ in range(n_vars))
         if pattern is None
@@ -379,9 +381,7 @@ def make_difference_jacobian(
     ent_start = np.cumsum([0, *(len(e) for e in entries)]).astype(np.int32)
     ent_row = np.array([r for e in entries for r, _ in e], dtype=np.int32)
     ent_col = np.array([c for e in entries for _, c in e], dtype=np.int32)
-    ent_slot = np.array(
-        [slot_of(r, c) for e in entries for r, c in e], dtype=np.int32
-    )
+    ent_slot = np.array([slot_of(r, c) for e in entries for r, c in e], dtype=np.int32)
 
     @cuda.jit(device=True)
     def write_state_and_time(y_local, t, p_row, lu, dT, base):
@@ -439,26 +439,11 @@ def make_difference_jacobian(
         for j in range(n_params + 2):
             p_moved[j] = p_row[j]
         for k in range(coupling):
-            smallest = 0.0
-            for j in range(n_params):
-                size = abs(p_row[j])
-                if p_seed[k, j] != 0.0 and size > 0.0:
-                    if smallest == 0.0 or size < smallest:
-                        smallest = size
-            if smallest == 0.0:
-                smallest = 1.0
-            steepest = 0.0
-            for j in range(n_params):
-                if p_seed[k, j] != 0.0:
-                    size = abs(p_row[j])
-                    steepest = max(
-                        steepest, abs(p_seed[k, j]) / (size if size > 0.0 else smallest)
-                    )
-            if steepest == 0.0 or not math.isfinite(steepest):
+            h = param_step(p_row, p_seed[k], _CBRT_EPS)
+            if h == 0.0:
                 for r in range(n_vars):
                     coup[k, r] = 0.0
                 continue
-            h = _CBRT_EPS / steepest
             for j in range(n_params):
                 p_moved[j] = p_row[j] + h * p_seed[k, j]
             ode_write(y_local, t, p_moved, ahead)
