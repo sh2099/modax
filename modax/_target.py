@@ -8,9 +8,12 @@ names mean something there. This module decides the target once, at import,
 and exports the names every other module uses:
 
 ``TARGET``
-    ``"cuda"`` when ``numba_cuda_mlir`` is installed, ``"cpu"`` otherwise.
-    ``MODAX_TARGET=cpu`` forces the CPU target where both are possible;
-    ``MODAX_TARGET=cuda`` insists on CUDA and fails without it.
+    ``"cuda"`` when ``numba_cuda_mlir`` and ``numba_enzyme`` are both
+    installed, ``"cpu"`` otherwise. ``MODAX_TARGET=cpu`` forces the CPU target
+    where both are possible; ``MODAX_TARGET=cuda`` insists on CUDA and fails
+    without it. The choice looks at what is installed, not at the machine: an
+    installed CUDA stack with no usable GPU is still the CUDA target, and
+    needs ``MODAX_TARGET=cpu`` to run here.
 
 ``cuda``, ``types``, ``DeviceFunction``
     On CUDA, ``numba_cuda_mlir.cuda``, ``numba_cuda_mlir.types`` and its
@@ -43,6 +46,7 @@ derivative does; both modules say what that costs.
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import sys
 import types as _pytypes
@@ -54,13 +58,28 @@ _ENV_VAR = "MODAX_TARGET"
 _SERIAL_ENV_VAR = "MODAX_SERIAL"
 
 
-def _cuda_importable() -> bool:
-    """Whether the real numba-CUDA is installed (a CPU stand-in under its name is not)."""
+def _missing_cuda_packages() -> list[str]:
+    """The packages of the CUDA stack that are not installed, by import name.
+
+    A CPU stand-in under ``numba_cuda_mlir``'s name counts as missing. Enzyme is
+    part of the stack: every implicit solve differentiates through it, and the
+    package imports it with the solvers.
+    """
+    missing = []
     try:
         import numba_cuda_mlir
     except ImportError:
-        return False
-    return not getattr(numba_cuda_mlir, "__cpu_shim__", False)
+        missing.append("numba_cuda_mlir")
+    else:
+        if getattr(numba_cuda_mlir, "__cpu_shim__", False):
+            missing.append("numba_cuda_mlir")
+    try:
+        found = importlib.util.find_spec("numba_enzyme") is not None
+    except (ImportError, ValueError):
+        found = False
+    if not found:
+        missing.append("numba_enzyme")
+    return missing
 
 
 def _choose() -> Literal["cuda", "cpu"]:
@@ -71,10 +90,14 @@ def _choose() -> Literal["cuda", "cpu"]:
         )
     if requested == "cpu":
         return "cpu"
-    if _cuda_importable():
+    missing = _missing_cuda_packages()
+    if not missing:
         return "cuda"
     if requested == "cuda":
-        raise ImportError(f"{_ENV_VAR}=cuda, but numba_cuda_mlir is not installed")
+        raise ImportError(
+            f"{_ENV_VAR}=cuda, but {' and '.join(missing)} "
+            f"{'is' if len(missing) == 1 else 'are'} not installed"
+        )
     return "cpu"
 
 

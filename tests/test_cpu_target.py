@@ -405,3 +405,41 @@ def test_difference_second_tangent_matches_autodiff(outer):
     # In units of the term's largest component: an entry far below that is
     # noise, which is all a Jacobian block that only sets the order needs.
     assert np.abs(out - expected).max() < 5e-5 * np.abs(expected).max()
+
+
+# --- which target is chosen ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [["numba_cuda_mlir"], ["numba_enzyme"], ["numba_cuda_mlir", "numba_enzyme"]],
+)
+def test_an_incomplete_cuda_stack_is_the_cpu_target(monkeypatch, missing):
+    """numba-CUDA without Enzyme imports, and then fails inside the first implicit solve."""
+    monkeypatch.setattr(_target, "_missing_cuda_packages", lambda: missing)
+    monkeypatch.delenv("MODAX_TARGET", raising=False)
+    assert _target._choose() == "cpu"
+    monkeypatch.setenv("MODAX_TARGET", "cuda")
+    with pytest.raises(ImportError, match=missing[-1]):
+        _target._choose()
+
+
+def test_the_cpu_target_can_be_forced_beside_a_complete_cuda_stack(monkeypatch):
+    monkeypatch.setattr(_target, "_missing_cuda_packages", list)
+    monkeypatch.delenv("MODAX_TARGET", raising=False)
+    assert _target._choose() == "cuda"
+    monkeypatch.setenv("MODAX_TARGET", "cpu")
+    assert _target._choose() == "cpu"
+    monkeypatch.setenv("MODAX_TARGET", "gpu")
+    with pytest.raises(ValueError, match="MODAX_TARGET"):
+        _target._choose()
+
+
+def test_a_cpu_stand_in_is_not_numba_cuda(monkeypatch):
+    import sys
+    import types
+
+    stand_in = types.ModuleType("numba_cuda_mlir")
+    stand_in.__cpu_shim__ = True
+    monkeypatch.setitem(sys.modules, "numba_cuda_mlir", stand_in)
+    assert "numba_cuda_mlir" in _target._missing_cuda_packages()
