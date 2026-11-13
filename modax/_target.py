@@ -23,9 +23,9 @@ and exports the names every other module uses:
 
     ==============================  ======================================
     ``cuda.jit(device=True)``       ``numba.njit(error_model="numpy")``
-    ``cuda.local.array(n, dtype)``  ``np.empty(n, dtype)``
+    ``cuda.local.array(n, dtype)``  ``np.zeros(n, dtype)``
     ``cuda.const.array_like(a)``    ``a`` (numba freezes a closed-over array)
-    ``cuda.shared.array(s, dtype)``   ``np.empty(s, dtype)``
+    ``cuda.shared.array(s, dtype)``   ``np.zeros(s, dtype)``
     ``cuda.blockIdx.x`` etc.        ``0``
     ``cuda.grid(1)``                ``0``
     ``cuda.ballot_sync(m, p)``      ``1 if p else 0``
@@ -64,6 +64,7 @@ import numpy as np
 
 _ENV_VAR = "MODAX_TARGET"
 _SERIAL_ENV_VAR = "MODAX_SERIAL"
+_POISON_ENV_VAR = "MODAX_POISON"
 
 
 def _missing_cuda_packages() -> list[str]:
@@ -126,9 +127,30 @@ def _cpu_namespace() -> tuple[Any, Any, Any, Any, Any]:
     # the thread's share of the ensemble.
     device = njit(error_model="numpy")
 
-    @device
-    def local_array(shape, dtype):
-        return np.empty(shape, dtype)
+    if os.environ.get(_POISON_ENV_VAR):
+        # For finding a read of a local array before it is written: every one
+        # starts as NaN, which then shows in whatever read it.
+        @device
+        def local_array(shape, dtype):
+            array = np.empty(shape, dtype)
+            array.reshape(-1)[:] = np.nan
+            return array
+
+    else:
+        # Zeroed, not empty. With three blocks the hierarchy kernel hands a
+        # reader the second-derivative coefficients of an upstream
+        # sensitivity before anything has written them (found by starting
+        # every local array as NaN, MODAX_POISON=1). On the device that is
+        # whatever the stack held; the quintic's basis for that coefficient
+        # and its first derivative vanish at a node, so an Enzyme sweep there
+        # would multiply it by zero, though that has not been checked on a
+        # device. A difference steps along the direction instead: it sizes
+        # its step by the stale entry and evaluates off the node. Three
+        # blocks' sensitivities came out NaN on x86-64 until the entry was a
+        # number that does no harm.
+        @device
+        def local_array(shape, dtype):
+            return np.zeros(shape, dtype)
 
     @device
     def array_like(array):
