@@ -89,17 +89,20 @@ def main():
     theirs = reference["hist_c1_default"]
     assert ours.shape == theirs.shape, (ours.shape, theirs.shape)
     np.testing.assert_array_equal(k_sorted, reference["hist_c1_default_k_sorted"])
+    # In units of the solve's own tolerance (rtol = atol = PERTURB_RTOL), which
+    # is what two solves on different step sequences can be asked to share.
     final_ours, final_theirs = ours[:, 0, -1, :], theirs[:, 0, -1, :]
-    scale = np.abs(final_theirs).max(axis=0, keepdims=True)
-    difference = np.abs(final_ours - final_theirs) / np.where(scale > 0, scale, 1.0)
+    tolerance = P.PERTURB_ATOL + P.PERTURB_RTOL * np.abs(final_theirs)
+    difference = np.abs(final_ours - final_theirs) / tolerance
     names = [str(n) for n in reference["hist_state_names"]]
     worst = np.argsort(difference.max(axis=0))[::-1][:5]
-    record["final state of 16 modes, per state against its largest value"] = {
+    record["final state of 16 modes, difference in tolerances"] = {
         "max": float(difference.max()),
+        "99th percentile": float(np.percentile(difference, 99)),
         "median": float(np.median(difference)),
         "worst_states": {names[j]: float(difference[:, j].max()) for j in worst},
     }
-    print(record["final state of 16 modes, per state against its largest value"])
+    print(record["final state of 16 modes, difference in tolerances"])
 
     RESULTS.mkdir(exist_ok=True)
     path = RESULTS / "gpu_comparison.json"

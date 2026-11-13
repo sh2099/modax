@@ -74,7 +74,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import numpy as np
-from modax._target import TARGET, cuda, types
+from modax._target import N_DRIVER_COLUMNS, TARGET, cuda, types
 from modax._target import DeviceFunction as MLIRDispatcher
 
 from modax import _tsit5 as T
@@ -2098,9 +2098,10 @@ def _emit_kernel(
     w(1, "times = times_all[t_row : t_row + n_save]")
     w(1, "tf = times[n_save - 1]")
     w(1, "dt_init = dt0 if dt0 > 0.0 else (tf - times[0]) * 1e-6")
-    # On the CPU the row ends with the two columns the launch appends for the
+    # On the CPU the row ends with the columns the launch appends for the
     # finite-difference Jacobian (modax._target.ensemble_driver).
-    w(1, f"p_local = cuda.local.array({P + (2 if TARGET == 'cpu' else 0)}, np.float64)")
+    extra = N_DRIVER_COLUMNS if TARGET == "cpu" else 0
+    w(1, f"p_local = cuda.local.array({P + extra}, np.float64)")
     w(1, f"pbuf = cuda.local.array({P}, np.float64)")
     w(
         1,
@@ -2116,9 +2117,8 @@ def _emit_kernel(
     w(2, "p_local[c] = 0.0")
     w(1, f"for c in range({n_params}):")
     w(2, "p_local[c] = params[i, c]")
-    if TARGET == "cpu":
-        w(1, f"p_local[{P}] = params[i, {n_params}]")
-        w(1, f"p_local[{P + 1}] = params[i, {n_params + 1}]")
+    for c in range(extra):
+        w(1, f"p_local[{P + c}] = params[i, {n_params + c}]")
     for bp in plan.blocks:
         if bp.hslot >= 0:
             w(1, f"p_local[{bp.hslot + 1}] = 1.0")

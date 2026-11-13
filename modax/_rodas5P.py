@@ -30,7 +30,7 @@ from modax._sensitivity import (
 )
 from modax._sparse_direct import sparse_direct_solver_for
 from modax._sparsity import CompressedJacobian, Pattern, dense_jacobian
-from modax._target import TARGET, cuda, types
+from modax._target import N_DRIVER_COLUMNS, TARGET, cuda, types
 from modax._target import DeviceFunction as MLIRDispatcher
 
 
@@ -289,6 +289,8 @@ def _make_literal_seed_jacobian(
 
 
 _SQRT_EPS = math.sqrt(float(np.finfo(np.float64).eps))
+JACOBIAN_STEP_PER_RTOL = 0.1
+"""The Jacobian's relative difference step as a fraction of ``rtol``, where that exceeds ``sqrt(eps)``."""
 _CBRT_EPS = float(np.finfo(np.float64).eps) ** (1.0 / 3.0)
 
 
@@ -326,10 +328,20 @@ def make_difference_jacobian(
     than as a directional derivative along the group's indicator. Time is
     stepped by ``sqrt(eps) max(|t|, scale)``.
 
-    ``typical`` and the time ``scale`` are not arguments, so that the kernels
-    call this writer as they call Enzyme's. They are read from the parameter
-    row at ``context`` and ``context + 1``, where the CPU launch puts
-    ``atol / rtol`` and the first step
+    The relative step is ``sqrt(eps)`` only for a tight solve: it is
+    ``max(sqrt(eps), 0.1 rtol)``. ``sqrt(eps)`` is the best step for a function
+    computed to double precision and far too small for one that is not.
+    DISCO-EB evaluates RECFAST's transcendentals in single precision, whose
+    rounding is four times a ``sqrt(eps)`` step: with it, three of 16,384
+    P(k) values were off by 2e-3 at ``rtol = 1e-4`` where a GPU's worst was
+    3e-4, and every step size from three to ten thousand times larger gave
+    the GPU's figure. A Jacobian need not be finer than the solve it serves,
+    and a looser solve is where a cheaper right-hand side is likely.
+
+    ``typical``, the time ``scale`` and ``rtol`` are not arguments, so that
+    the kernels call this writer as they call Enzyme's. They are read from
+    the parameter row at ``context`` onwards, where the CPU launch puts
+    ``atol / rtol``, the first step and ``rtol``
     (:py:obj:`ensemble_driver <modax._target.ensemble_driver>`).
 
     Forward differences at ``sqrt(eps)`` leave each entry with rounding noise
@@ -390,6 +402,7 @@ def make_difference_jacobian(
         clear_matrix(lu)
         ode_write(y_local, t, p_row, base)
         typical = p_row[context]
+        relative = max(_SQRT_EPS, JACOBIAN_STEP_PER_RTOL * p_row[context + 2])
         for j in range(n_vars):
             y_moved[j] = y_local[j]
         for g in range(n_colours):
@@ -397,7 +410,7 @@ def make_difference_jacobian(
             for attempt in range(2):
                 for a in range(col_start[g], col_start[g + 1]):
                     c = col_index[a]
-                    y_moved[c] = y_local[c] + sign * _SQRT_EPS * max(
+                    y_moved[c] = y_local[c] + sign * relative * max(
                         abs(y_local[c]), typical
                     )
                 ode_write(y_moved, t, p_row, moved)
@@ -415,7 +428,7 @@ def make_difference_jacobian(
                 if finite:
                     break
                 sign = -1.0
-        t_moved = t + _SQRT_EPS * max(abs(t), p_row[context + 1])
+        t_moved = t + relative * max(abs(t), p_row[context + 1])
         ode_write(y_local, t_moved, p_row, moved)
         for j in range(n_vars):
             dT[j] = (moved[j] - base[j]) / (t_moved - t)
@@ -434,9 +447,9 @@ def make_difference_jacobian(
         base = cuda.local.array(n_vars, types.float64)
         ahead = cuda.local.array(n_vars, types.float64)
         behind = cuda.local.array(n_vars, types.float64)
-        p_moved = cuda.local.array(n_params + 2, types.float64)
+        p_moved = cuda.local.array(n_params + N_DRIVER_COLUMNS, types.float64)
         write_state_and_time(y_local, t, p_row, lu, dT, base)
-        for j in range(n_params + 2):
+        for j in range(n_params + N_DRIVER_COLUMNS):
             p_moved[j] = p_row[j]
         for k in range(coupling):
             h = param_step(p_row, p_seed[k], _CBRT_EPS)

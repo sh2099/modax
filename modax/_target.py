@@ -236,7 +236,7 @@ def _claim_next() -> Any:
     return claim
 
 
-N_DRIVER_COLUMNS = 2
+N_DRIVER_COLUMNS = 3
 """Columns :func:`ensemble_driver` appends to a trajectory's parameter row."""
 
 
@@ -260,13 +260,14 @@ def ensemble_driver(kernel: Any) -> Callable[..., None]:
     The parameter row is a copy with :data:`N_DRIVER_COLUMNS` more columns
     than the kernel was built for. A right-hand side reads only its own
     columns; the finite-difference Jacobian (``modax/_rodas5P.py``) reads the
-    two after them, which it has no other way to be told without the kernels'
+    ones after them, which it has no other way to be told without the kernels'
     source differing between the targets:
 
     * ``atol / rtol``, the size at which the two tolerances meet, as the
       typical size of a state that is zero or far below it;
     * the first step (the one given, or the kernel's own default of ``1e-6`` of
-      the window), as the scale of time where time itself is near zero.
+      the window), as the scale of time where time itself is near zero;
+    * ``rtol``, which bounds how fine a difference step is worth taking.
 
     Trajectories take very different numbers of steps, and numba's default
     threading layer hands each thread a fixed share of a loop, so a loop over
@@ -302,6 +303,7 @@ def ensemble_driver(kernel: Any) -> Callable[..., None]:
         row[0, n_params] = atol / rtol if rtol > 0.0 else 1.0
         window = own_times[n_save - 1] - own_times[0]
         row[0, n_params + 1] = dt0 if dt0 > 0.0 else window * 1e-6
+        row[0, n_params + 2] = rtol
         kernel(
             y0[i : i + 1], own_times, row, dt0, rtol, atol, max_steps, 1,
             weights[i : i + 1], hist[i : i + 1], accepted[i : i + 1],

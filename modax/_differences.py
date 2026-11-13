@@ -50,7 +50,7 @@ from typing import Callable
 import numpy as np
 
 from modax._numba_common import as_cuda_device
-from modax._target import DeviceFunction, cuda, types
+from modax._target import N_DRIVER_COLUMNS, DeviceFunction, cuda, types
 
 _EPS = float(np.finfo(np.float64).eps)
 FIRST_ORDER_STEP = _EPS ** (1.0 / 3.0)
@@ -172,7 +172,7 @@ def difference_tangent(
     largest_of = _largest(n_vars)
     delta = FIRST_ORDER_STEP
     # a caller's row may carry columns past the function's own
-    p_size = n_params + 2
+    p_size = n_params + N_DRIVER_COLUMNS
 
     @cuda.jit(device=True)
     def tangent(out, y, t, p, dy, dt, dp):
@@ -243,7 +243,7 @@ def difference_second_tangent(
     flow_step, param_step = step_rules(n_vars, n_params, parameter_groups(fn, n_params))
     largest_of = _largest(n_vars)
     delta = SECOND_ORDER_STEP
-    p_size = n_params + 2
+    p_size = n_params + N_DRIVER_COLUMNS
 
     @cuda.jit(device=True)
     def corner(out, weight, y, t, p, a, u_y, u_t, a_p, u_p, b, v_y, v_t):

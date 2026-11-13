@@ -35,6 +35,7 @@ N = 6
 N_P = 3
 TYPICAL = 1.0e-2
 TIME_SCALE = 1.0e-3
+RTOL = 1.0e-9
 
 
 def chain(y, t, p):
@@ -68,8 +69,8 @@ P = np.array([2.0, 0.5, 1.5])
 
 
 def row(p):
-    """A parameter row as the launch hands it to a kernel: two more columns."""
-    return np.concatenate([p, [TYPICAL, TIME_SCALE]])
+    """A parameter row as the launch hands it to a kernel: three more columns."""
+    return np.concatenate([p, [TYPICAL, TIME_SCALE, RTOL]])
 
 
 def robertson(y, t, p):
@@ -236,7 +237,7 @@ def test_grouped_parameters_are_sized_by_the_largest_of_the_group():
     Sized on its own it is stepped by ``6e-6`` of ``1e-13``, and the difference
     of a function of order one over that step is rounding.
     """
-    p = np.array([1.0, 2.0, 3.0, 1.0e-13, 0.7, TYPICAL, TIME_SCALE])
+    p = np.array([1.0, 2.0, 3.0, 1.0e-13, 0.7, TYPICAL, TIME_SCALE, RTOL])
     dp = np.array([0.0, 0.0, 0.0, 1.0, 0.0])
     y = np.array([0.4, 0.2])
     exact = [math.sin(0.4), 0.0]
