@@ -3,66 +3,66 @@
  "thermal_chunk": 16,
  "threads": 14,
  "threading_layer": "workqueue",
- "grids_s": 5.4843,
+ "grids_s": 5.5958,
  "first": {
-  "total_s": 93.8445,
+  "total_s": 95.2356,
   "stages_s": {
-   "compile: jax backend_compile_duration": 1.2875,
-   "compile: jax jaxpr_to_mlir_module_duration": 0.0826,
-   "compile: jax jaxpr_trace_duration": 0.0399,
-   "compile: numba": 8.2331,
-   "prepare": 0.0043,
-   "projection": 0.0495,
-   "projection operator": 85.2296,
-   "solve": 8.4083,
-   "solve/kernels": 8.2866,
+   "compile: jax backend_compile_duration": 1.282,
+   "compile: jax jaxpr_to_mlir_module_duration": 0.0822,
+   "compile: jax jaxpr_trace_duration": 0.049,
+   "compile: numba": 8.4344,
+   "prepare": 0.0039,
+   "projection": 0.0489,
+   "projection operator": 86.4313,
+   "solve": 8.6187,
+   "solve/kernels": 8.4858,
    "source tables": 0.0008,
-   "spectra": 0.0817
+   "spectra": 0.0618
   }
  },
  "new": {
-  "total_s": 0.1226,
+  "total_s": 0.1074,
   "stages_s": {
-   "compile: jax backend_compile_duration": 0.0029,
-   "compile: jax jaxpr_to_mlir_module_duration": 0.0006,
+   "compile: jax backend_compile_duration": 0.003,
+   "compile: jax jaxpr_to_mlir_module_duration": 0.0005,
    "compile: jax jaxpr_trace_duration": 0.0001,
-   "prepare": 0.0519,
-   "prepare/thermal tables": 0.0504,
+   "prepare": 0.0395,
+   "prepare/thermal tables": 0.0381,
    "projection": 0.0,
    "projection operator": 0.0,
-   "solve": 0.0545,
-   "solve/kernels": 0.0497,
+   "solve": 0.0531,
+   "solve/kernels": 0.0483,
    "source tables": 0.0008,
    "spectra": 0.0
   }
  },
  "new_2": {
-  "total_s": 0.0977,
+  "total_s": 0.0947,
   "stages_s": {
-   "compile: jax backend_compile_duration": 0.0029,
+   "compile: jax backend_compile_duration": 0.003,
    "compile: jax jaxpr_to_mlir_module_duration": 0.0004,
    "compile: jax jaxpr_trace_duration": 0.0001,
-   "prepare": 0.0307,
-   "prepare/thermal tables": 0.0295,
+   "prepare": 0.0277,
+   "prepare/thermal tables": 0.0264,
    "projection": 0.0,
    "projection operator": 0.0,
-   "solve": 0.0521,
-   "solve/kernels": 0.0481,
-   "source tables": 0.0008,
+   "solve": 0.0522,
+   "solve/kernels": 0.048,
+   "source tables": 0.0009,
    "spectra": 0.0
   }
  },
  "repeat": {
-  "total_s": 0.0642,
+  "total_s": 0.063,
   "stages_s": {
-   "compile: jax backend_compile_duration": 0.0029,
+   "compile: jax backend_compile_duration": 0.0031,
    "compile: jax jaxpr_to_mlir_module_duration": 0.0004,
    "compile: jax jaxpr_trace_duration": 0.0001,
    "prepare": 0.0,
    "projection": 0.0,
    "projection operator": 0.0,
-   "solve": 0.051,
-   "solve/kernels": 0.0461,
+   "solve": 0.0501,
+   "solve/kernels": 0.045,
    "spectra": 0.0
   }
  }

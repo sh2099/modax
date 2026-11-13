@@ -6,16 +6,16 @@
    "Max relative difference among violations: 4.25790569"
   ]
  },
- "solve_eb_derivative_checks_s": 30.76521324994974,
+ "solve_eb_derivative_checks_s": 26.973370084073395,
  "eps column (one per replica)": {
-  "plain_s": 0.06062879110686481,
-  "jacobian_s": 1.882345624966547,
-  "ratio": 31.04705851133843
+  "plain_s": 0.03195837512612343,
+  "jacobian_s": 0.8600640001241118,
+  "ratio": 26.912006531304463
  },
  "five density columns": {
-  "plain_s": 0.06437058304436505,
-  "jacobian_s": 1.5991587499156594,
-  "ratio": 24.843005520293303
+  "plain_s": 0.03262595785781741,
+  "jacobian_s": 0.7735179159790277,
+  "ratio": 23.708665331757835
  },
  "layout_difference_dlnP_dlnrho": {
   "grhog": {

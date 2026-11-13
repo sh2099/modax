@@ -19,6 +19,8 @@ the in-package target has replaced.
 | `check_rhs_jacobian.py` | DISCO-EB's compiled right-hand side and the finite-difference Jacobian against JAX autodiff of the same model. |
 | `check_radau.py` | A few perturbation modes against SciPy Radau. |
 | `measure_derivatives.py` | Derivative accuracy and cost: the two sensitivity layouts against each other, and the checks of `test_solve_eb_derivatives` that do not depend on bitwise-equal inputs. |
+| `profile_cmb.py` | Stage timings of DISCO-EB's CMB call (first call, new batch, repeated batch) and what numba and JAX compile. |
+| `check_lensing.py` | Which input the end-to-end lensing gate is missed on: each of the test's inputs swapped for CLASS's own. |
 | `jacobian_tools.py` | The target's Jacobian writer as a host-callable function, for the two checks. |
 | `dump_gpu_reference.py` | Run on a CUDA machine: records what modax produces there. |
 | `compare_with_gpu.py` | Compares the CPU target with that record on identical inputs. |
@@ -67,12 +69,34 @@ then here: `.venv/bin/python compare_with_gpu.py gpu_reference.npz`.
 
 - Derivatives on the CPU target are finite differences (`modax/_differences.py`).
   DISCO-EB's `matter_power_spectrum_jax` and `cl_power_spectrum_jax` pass their
-  tests; a Jacobian of P(k) in the five densities costs about 25 to 30 plain
-  solves. `test_solve_eb_derivatives` fails: it requires two launches whose
-  densities differ by one unit in the last place (NumPy against XLA's
-  `Tcmb**4`) to agree to 1e-12, and with a finite-difference Jacobian the
-  solve moves by about 1e-6 of its scale for such a change.
-  `measure_derivatives.py` runs the rest of that test's checks and records
-  costs.
+  tests; a Jacobian of P(k) in the five densities costs about 25 plain solves.
+  Each sensitivity column costs about 12 right-hand-side evaluations a stage
+  (4 for its first derivative, 8 for the second-order coupling term), against
+  about 20 a step for the plain solve.
+- `test_solve_eb_derivatives` fails on its first assertion, which requires two
+  launches to agree to 1e-12. Their photon densities differ by one unit in the
+  last place: one is formed in NumPy and one in JAX, and XLA's CPU `pow`
+  rounds `Tcmb**4` differently (on Linux x86-64 too). The solve then moves by
+  about 1e-6 of its scale, and that is the float32 linear solve, not the
+  differenced Jacobian: with `lu_precision="fp64"` it moves by 1e-9, and on
+  Robertson an exact Jacobian with the float32 solve moves as much as the
+  differenced one (1e-7). So the assertion holds only where the two densities
+  are bitwise equal; whether they are on a GPU is not yet checked.
+  `measure_derivatives.py` runs the rest of that test's checks.
+- `test_lensed_spectra_end_to_end_match_class` misses one gate (TT lensing
+  correction 1.7e-3 against 1e-3 near l = 1490). The test takes
+  `lensing_tables` at its float32 default, and the lensing sum alone, given
+  CLASS's own spectra, is then off by 1.1e-3 there (1.9e-4 with float64
+  tables). With float64 tables the test's calculation gives 8.2e-4.
+  `check_lensing.py` records this in `results/lensing_gate.json`.
+- A first CMB call takes about 95 s with DISCO-EB's default grids, of which
+  85 s is DISCO-EB building its projection tables in eager JAX and 9 s is
+  numba compiling the kernel. numba cannot cache the kernels on disk: they
+  and the right-hand sides are generated source with no file behind them, and
+  the harness compiles table buffers in by address.
+- A cosmology not seen before costs 1.4 to 1.8 s more than one seen, because
+  DISCO-EB pads its thermal-history program to 128 cosmologies;
+  `discoeb_cpu.install(thermal_chunk=16)` brings that to 0.04 s (see its
+  docstring).
 - Tables made with `cuda.to_device` are frozen into the code compiled against
   them; only `cuda.device_array` buffers can be refilled.

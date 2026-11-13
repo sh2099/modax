@@ -1,0 +1,161 @@
+{
+ "class_reference_shift_tt": {
+  "accurate_lensing": 4.049175359932544e-05,
+  "delta_l_max 1000 (default 500)": 8.970083843706789e-06,
+  "sampling stepsize 0.005": 1.7532702223377328e-07
+ },
+ "gate_tt": 0.001,
+ "gate_ee": 0.005,
+ "cases": {
+  "the test: our spectra, our potential": {
+   "tt": {
+    "worst": 0.0017061720692539417,
+    "at_l": 1492,
+    "worst_at_sampled_l": 0.0014349744299916312,
+    "worst_above_1000": 0.0017061720692539417,
+    "worst_below_1000": 0.00043583022696402907
+   },
+   "ee": {
+    "worst": 0.0011740454070169326,
+    "at_l": 2,
+    "worst_at_sampled_l": 0.0011740454070169326,
+    "worst_above_1000": 0.0004589334839151249,
+    "worst_below_1000": 0.0011740454070169326
+   }
+  },
+  "the test with float64 lensing tables": {
+   "tt": {
+    "worst": 0.0008244404067401234,
+    "at_l": 1491,
+    "worst_at_sampled_l": 0.0007206740626313213,
+    "worst_above_1000": 0.0008244404067401234,
+    "worst_below_1000": 0.00019920683966900832
+   },
+   "ee": {
+    "worst": 0.0012341411419727333,
+    "at_l": 2,
+    "worst_at_sampled_l": 0.0012341411419727333,
+    "worst_above_1000": 0.0004609169981655281,
+    "worst_below_1000": 0.0012341411419727333
+   }
+  },
+  "CLASS spectra and potential at every l, float64 lensing tables": {
+   "tt": {
+    "worst": 0.00018514517768930538,
+    "at_l": 1447,
+    "worst_at_sampled_l": 0.00017832927244243457,
+    "worst_above_1000": 0.00018514517768930538,
+    "worst_below_1000": 8.775170048735959e-05
+   },
+   "ee": {
+    "worst": 0.00021071770942326928,
+    "at_l": 1247,
+    "worst_at_sampled_l": 0.00019089800834870552,
+    "worst_above_1000": 0.00021071770942326928,
+    "worst_below_1000": 0.00013211357433595694
+   }
+  },
+  "CLASS spectra at every l, CLASS potential at every l": {
+   "tt": {
+    "worst": 0.0010803843410698288,
+    "at_l": 1481,
+    "worst_at_sampled_l": 0.0007710259936570818,
+    "worst_above_1000": 0.0010803843410698288,
+    "worst_below_1000": 0.00041709460435424006
+   },
+   "ee": {
+    "worst": 0.0002106688490199904,
+    "at_l": 1247,
+    "worst_at_sampled_l": 0.0001910744139714815,
+    "worst_above_1000": 0.0002106688490199904,
+    "worst_below_1000": 0.0001457090021008689
+   }
+  },
+  "CLASS spectra splined from the test's multipoles, CLASS potential at every l": {
+   "tt": {
+    "worst": 0.001175087583827783,
+    "at_l": 1296,
+    "worst_at_sampled_l": 0.0006727404822530758,
+    "worst_above_1000": 0.001175087583827783,
+    "worst_below_1000": 0.00035875857443701253
+   },
+   "ee": {
+    "worst": 0.0006215399138467248,
+    "at_l": 1461,
+    "worst_at_sampled_l": 0.0002357288310828043,
+    "worst_above_1000": 0.0006215399138467248,
+    "worst_below_1000": 0.0006214818722596327
+   }
+  },
+  "CLASS spectra at every l, CLASS potential splined from the test's multipoles": {
+   "tt": {
+    "worst": 0.0010154858826776358,
+    "at_l": 1245,
+    "worst_at_sampled_l": 0.0006680139053221179,
+    "worst_above_1000": 0.0010154858826776358,
+    "worst_below_1000": 0.0004168004633785527
+   },
+   "ee": {
+    "worst": 0.0002488526247603762,
+    "at_l": 2,
+    "worst_at_sampled_l": 0.0002488526247603762,
+    "worst_above_1000": 0.00020982639433442252,
+    "worst_below_1000": 0.0002488526247603762
+   }
+  },
+  "CLASS spectra at every l, our potential": {
+   "tt": {
+    "worst": 0.0011490255189723353,
+    "at_l": 1431,
+    "worst_at_sampled_l": 0.0006133266703275408,
+    "worst_above_1000": 0.0011490255189723353,
+    "worst_below_1000": 0.0004881786734771687
+   },
+   "ee": {
+    "worst": 0.0005277704554597085,
+    "at_l": 2,
+    "worst_at_sampled_l": 0.0005277704554597085,
+    "worst_above_1000": 0.0002219676530408332,
+    "worst_below_1000": 0.0005277704554597085
+   }
+  },
+  "our spectra, CLASS potential at every l": {
+   "tt": {
+    "worst": 0.0016975920699573432,
+    "at_l": 1487,
+    "worst_at_sampled_l": 0.0012950696037375975,
+    "worst_above_1000": 0.0016975920699573432,
+    "worst_below_1000": 0.000482684435968328
+   },
+   "ee": {
+    "worst": 0.0007598327998395993,
+    "at_l": 2,
+    "worst_at_sampled_l": 0.0007598327998395993,
+    "worst_above_1000": 0.0004370575772101315,
+    "worst_below_1000": 0.0007598327998395993
+   }
+  },
+  "the test with multipoles every 20 above l = 200": {
+   "tt": {
+    "worst": 0.0019999689113321395,
+    "at_l": 1430,
+    "worst_at_sampled_l": 0.0017350135641334141,
+    "worst_above_1000": 0.0019999689113321395,
+    "worst_below_1000": 0.0006683368875463058
+   },
+   "ee": {
+    "worst": 0.0011337285314599876,
+    "at_l": 2,
+    "worst_at_sampled_l": 0.0011337285314599876,
+    "worst_above_1000": 0.00039491765812438295,
+    "worst_below_1000": 0.0011337285314599876
+   }
+  }
+ },
+ "our unlensed spectra against CLASS at the sampled multipoles": {
+  "tt": 0.00400418818567172,
+  "ee": 0.00226109924858231
+ },
+ "our potential against CLASS at its sampled multipoles": 0.025888754001316405,
+ "classy": "v3.4.2"
+}
