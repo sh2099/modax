@@ -35,6 +35,16 @@ export PYTHONPATH=..:.:/path/to/DISCO-EB/src     # modax and DISCO-EB by path
 (`uv sync --no-dev` at the repository root also installs modax itself on
 macOS; the environment above adds what DISCO-EB's tests need.)
 
+On Linux, from the lock and without the two CUDA packages (checked on RHEL 9,
+glibc 2.34, x86-64, where `numba-enzyme-cuda` cannot be installed):
+
+```bash
+uv sync --no-dev --python 3.12 --no-install-package numba-enzyme-cuda --no-install-package numba-cuda-mlir
+VIRTUAL_ENV=$PWD/.venv uv pip install pytest pytest-benchmark classy
+```
+
+The small NVIDIA toolkit wheels the lock lists still install and are unused.
+
 ## Running
 
 ```bash

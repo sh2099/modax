@@ -109,6 +109,19 @@ uv run ty check
 uv run pre-commit install   # runs the three checks above on every commit
 ```
 
+Without the CUDA packages the kernels compile for the CPU with plain numba
+(`modax/_target.py`), with finite differences where CUDA uses Enzyme. macOS
+gets that from `uv sync`, since neither package has a macOS build. On Linux
+they are dependencies, and `numba-enzyme-cuda` needs glibc 2.38; to leave them
+out (a machine without a usable GPU, or an older glibc):
+
+```bash
+uv sync --no-install-package numba-enzyme-cuda --no-install-package numba-cuda-mlir
+```
+
+Where the whole CUDA stack is installed, `MODAX_TARGET=cpu` selects the CPU
+target.
+
 The documentation builds in an environment of its own, since syncing the docs
 group into the default one replaces the project's packages:
 

@@ -165,14 +165,39 @@ def available() -> bool:
     return TARGET == "cpu" or bool(cuda.is_available())
 
 
+def _claim_next() -> Any:
+    """``claim(counter)``: add one to ``counter[0]`` atomically and return what it held."""
+    from llvmlite import ir
+    from numba import types as numba_types
+    from numba.extending import intrinsic
+
+    @intrinsic
+    def claim(typingctx, counter):
+        def codegen(context, builder, signature, args):
+            array = context.make_array(signature.args[0])(context, builder, args[0])
+            one = ir.Constant(ir.IntType(64), 1)
+            return builder.atomic_rmw("add", array.data, one, "seq_cst")
+
+        return numba_types.int64(counter), codegen
+
+    return claim
+
+
 def ensemble_driver(trajectory: Any, n_args: int) -> Callable[..., None]:
     """The CPU launch of a kernel: ``trajectory(i, *args)`` for every ``i``, in parallel.
 
     ``trajectory`` is the device function integrating trajectory ``i`` and
     ``args`` the kernel's ``n_args`` arguments, the first of which has the
-    ensemble as its leading axis. Trajectories take very different numbers of
-    steps, so the caller should run the loop with ``numba.parallel_chunksize(1)``
-    (:func:`run_ensemble` does).
+    ensemble as its leading axis.
+
+    Trajectories take very different numbers of steps, and numba's default
+    threading layer hands each thread a fixed share of a loop, so a loop over
+    the trajectories leaves most threads idle while one finishes the expensive
+    share. The loop is therefore over the threads, each of which claims the
+    next unclaimed trajectory from a shared counter until none is left: the
+    schedule a CUDA launch gets from the device, whatever the threading layer.
+    The caller runs it with ``numba.parallel_chunksize(1)``
+    (:func:`run_ensemble` does), so that each thread gets one iteration.
 
     An exception raised inside the parallel loop is lost, and with it whatever
     the thread had left to do. Device code raises none of its own, but numba's
@@ -181,22 +206,42 @@ def ensemble_driver(trajectory: Any, n_args: int) -> Callable[..., None]:
     it one, for debugging. Without bounds checking such an index reads or
     writes whatever is there, as it does on the device.
     """
-    from numba import njit, prange
+    from numba import get_num_threads, njit, prange
 
     serial = bool(os.environ.get(_SERIAL_ENV_VAR))
     names = ", ".join(f"a{k}" for k in range(n_args))
-    source = (
-        f"def driver({names}):\n"
-        f"    for i in {'range' if serial else 'prange'}(a0.shape[0]):\n"
-        f"        trajectory(i, {names})\n"
-    )
+    if serial:
+        source = (
+            f"def driver({names}):\n"
+            f"    for i in range(a0.shape[0]):\n"
+            f"        trajectory(i, {names})\n"
+        )
+    else:
+        source = (
+            f"def driver({names}):\n"
+            f"    n = a0.shape[0]\n"
+            f"    counter = np.zeros(1, np.int64)\n"
+            f"    for thread in prange(min(n, get_num_threads())):\n"
+            f"        while True:\n"
+            f"            i = claim(counter)\n"
+            f"            if i >= n:\n"
+            f"                break\n"
+            f"            trajectory(i, {names})\n"
+        )
     scope: dict[str, Any] = {}
-    exec(source, {"prange": prange, "trajectory": trajectory}, scope)  # noqa: S102
+    names_in_scope = {
+        "prange": prange,
+        "trajectory": trajectory,
+        "np": np,
+        "get_num_threads": get_num_threads,
+        "claim": _claim_next(),
+    }
+    exec(source, names_in_scope, scope)  # noqa: S102
     return njit(parallel=not serial, error_model="numpy")(scope["driver"])
 
 
 def run_ensemble(driver: Callable[..., None], *args: Any) -> None:
-    """Call a CPU :func:`ensemble_driver`, handing the threads one trajectory at a time."""
+    """Call a CPU :func:`ensemble_driver`, one iteration of its loop to a thread."""
     import numba
 
     with numba.parallel_chunksize(1):

@@ -400,19 +400,25 @@ def _make_difference_jacobian(
     group's indicator. Time is stepped by ``sqrt(eps) max(|t|, |dt|)``.
 
     Forward differences at ``sqrt(eps)`` leave each entry with rounding noise
-    of about ``1e-8`` of its size, and a stiff step multiplies an error in
-    ``J`` or ``df/dt`` by ``h |J|``: on DISCO-EB's hierarchy the solution moves
-    by ``1e-6`` of its scale when a parameter changes by one unit in its last
-    place, well inside the tolerance but far from Enzyme's reproducibility.
-    Central differences at ``eps**(1/3)`` with a second-order ``df/dt``
-    brought that to ``1e-7`` and were not kept: with the central state
-    difference, whose step is four hundred times wider, RECFAST's
-    free-electron fraction came out 10 percent wrong at ``z = 10`` for some
-    cosmologies. Its right-hand side switches terms on thresholds in the state
-    (helium's at ``x_H = 0.9999999``, for one), which a wider step straddles
-    more often; that is the likely cause, not a demonstrated one. A difference
-    cannot see past a switch the way a derivative does, so the step stays as
-    small as rounding allows.
+    of about ``1e-8`` of its size, which changes with the last digit of the
+    input. With the float64 linear solve that is what limits how reproducible
+    a solve is: a parameter moved by one unit in its last place moves a
+    Robertson solution by ``1e-10`` (``1e-15`` with the exact Jacobian in this
+    writer's place) and DISCO-EB's hierarchy by ``1e-9`` of its scale. With
+    the float32 solve the noise is not what limits it: the same change moves
+    Robertson by ``1e-7`` whether the Jacobian is differenced or exact, and
+    DISCO-EB by ``1e-6``, because the rounding of the matrix and of every
+    stage's right-hand side to float32 flips with the input too.
+
+    Central differences at ``eps**(1/3)`` with a second-order ``df/dt`` have
+    less noise and were not kept: with the central state difference, whose
+    step is four hundred times wider, RECFAST's free-electron fraction came
+    out 10 percent wrong at ``z = 10`` for some cosmologies. Its right-hand
+    side switches terms on thresholds in the state (helium's at
+    ``x_H = 0.9999999``, for one), which a wider step straddles more often;
+    that is the likely cause, not a demonstrated one. A difference cannot see
+    past a switch the way a derivative does, so the step stays as small as
+    rounding allows.
 
     With no pattern every column is its own colour and every row an entry.
     """

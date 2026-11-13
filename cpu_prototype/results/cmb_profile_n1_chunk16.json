@@ -1,0 +1,69 @@
+{
+ "n_cosmologies": 1,
+ "thermal_chunk": 16,
+ "threads": 14,
+ "threading_layer": "workqueue",
+ "grids_s": 5.4843,
+ "first": {
+  "total_s": 93.8445,
+  "stages_s": {
+   "compile: jax backend_compile_duration": 1.2875,
+   "compile: jax jaxpr_to_mlir_module_duration": 0.0826,
+   "compile: jax jaxpr_trace_duration": 0.0399,
+   "compile: numba": 8.2331,
+   "prepare": 0.0043,
+   "projection": 0.0495,
+   "projection operator": 85.2296,
+   "solve": 8.4083,
+   "solve/kernels": 8.2866,
+   "source tables": 0.0008,
+   "spectra": 0.0817
+  }
+ },
+ "new": {
+  "total_s": 0.1226,
+  "stages_s": {
+   "compile: jax backend_compile_duration": 0.0029,
+   "compile: jax jaxpr_to_mlir_module_duration": 0.0006,
+   "compile: jax jaxpr_trace_duration": 0.0001,
+   "prepare": 0.0519,
+   "prepare/thermal tables": 0.0504,
+   "projection": 0.0,
+   "projection operator": 0.0,
+   "solve": 0.0545,
+   "solve/kernels": 0.0497,
+   "source tables": 0.0008,
+   "spectra": 0.0
+  }
+ },
+ "new_2": {
+  "total_s": 0.0977,
+  "stages_s": {
+   "compile: jax backend_compile_duration": 0.0029,
+   "compile: jax jaxpr_to_mlir_module_duration": 0.0004,
+   "compile: jax jaxpr_trace_duration": 0.0001,
+   "prepare": 0.0307,
+   "prepare/thermal tables": 0.0295,
+   "projection": 0.0,
+   "projection operator": 0.0,
+   "solve": 0.0521,
+   "solve/kernels": 0.0481,
+   "source tables": 0.0008,
+   "spectra": 0.0
+  }
+ },
+ "repeat": {
+  "total_s": 0.0642,
+  "stages_s": {
+   "compile: jax backend_compile_duration": 0.0029,
+   "compile: jax jaxpr_to_mlir_module_duration": 0.0004,
+   "compile: jax jaxpr_trace_duration": 0.0001,
+   "prepare": 0.0,
+   "projection": 0.0,
+   "projection operator": 0.0,
+   "solve": 0.051,
+   "solve/kernels": 0.0461,
+   "spectra": 0.0
+  }
+ }
+}
