@@ -420,6 +420,15 @@ def _make_difference_jacobian(
     past a switch the way a derivative does, so the step stays as small as
     rounding allows.
 
+    The step can also land where the function has no value. RECFAST freezes
+    helium below ``x_He = 1e-8``, where its rate equation would overflow at
+    late times; a state resting just under that guard is stepped over it, the
+    probe returns NaN, and with a NaN in the matrix every step is rejected
+    until ``max_steps`` runs out (DISCO-EB's cosmology 81 on x86-64 did:
+    99,808 rejections, the history frozen from ``z = 27``). A group whose
+    difference comes out non-finite is therefore differenced again with the
+    step reversed, which stays on the state's own side of such a guard.
+
     With no pattern every column is its own colour and every row an entry.
     """
     n_vars, n_colours = structure.n_vars, structure.n_colours
@@ -455,20 +464,28 @@ def _make_difference_jacobian(
         for j in range(n_vars):
             y_moved[j] = y_local[j]
         for g in range(n_colours):
-            for a in range(col_start[g], col_start[g + 1]):
-                c = col_index[a]
-                y_moved[c] = y_local[c] + _SQRT_EPS * max(abs(y_local[c]), typical)
-            ode_write(y_moved, t, p_row, moved)
-            for a in range(ent_start[g], ent_start[g + 1]):
-                c = ent_col[a]
-                r = ent_row[a]
-                # the step taken, after rounding into y_moved
-                lu[ent_slot[a]] = lu_dtype(
-                    -(moved[r] - base[r]) / (y_moved[c] - y_local[c])
-                )
-            for a in range(col_start[g], col_start[g + 1]):
-                c = col_index[a]
-                y_moved[c] = y_local[c]
+            sign = 1.0
+            for attempt in range(2):
+                for a in range(col_start[g], col_start[g + 1]):
+                    c = col_index[a]
+                    y_moved[c] = y_local[c] + sign * _SQRT_EPS * max(
+                        abs(y_local[c]), typical
+                    )
+                ode_write(y_moved, t, p_row, moved)
+                finite = True
+                for a in range(ent_start[g], ent_start[g + 1]):
+                    c = ent_col[a]
+                    r = ent_row[a]
+                    # the step taken, after rounding into y_moved
+                    entry = -(moved[r] - base[r]) / (y_moved[c] - y_local[c])
+                    finite = finite and math.isfinite(entry)
+                    lu[ent_slot[a]] = lu_dtype(entry)
+                for a in range(col_start[g], col_start[g + 1]):
+                    c = col_index[a]
+                    y_moved[c] = y_local[c]
+                if finite:
+                    break
+                sign = -1.0
         t_moved = t + _SQRT_EPS * max(abs(t), abs(dt))
         ode_write(y_local, t_moved, p_row, moved)
         for j in range(n_vars):

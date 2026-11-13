@@ -443,3 +443,33 @@ def test_a_cpu_stand_in_is_not_numba_cuda(monkeypatch):
     stand_in.__cpu_shim__ = True
     monkeypatch.setitem(sys.modules, "numba_cuda_mlir", stand_in)
     assert "numba_cuda_mlir" in _target._missing_cuda_packages()
+
+
+# --- a probe that leaves the function's domain ---------------------------------------------
+
+
+def guarded(y, t, p):
+    """Decay beside a component frozen under a guard, past which there is no value."""
+    if y[1] < 1.0e-8:
+        frozen = 0.0
+    else:
+        frozen = math.inf - math.inf
+    return (-p[0] * y[0], frozen)
+
+
+def test_a_difference_step_over_a_guard_is_taken_the_other_way():
+    """A state resting just under a guard is stepped over it by the forward difference.
+
+    The step for a component this small is ``sqrt(eps) atol / rtol = 1.5e-10``,
+    three times the distance to the guard, and the function is NaN beyond it.
+    Left in the matrix, the NaN rejects every step.
+    """
+    y0 = np.array([[1.0, 0.995e-8]])
+    times = np.array([0.0, 1.0, 2.0])
+    hist, stats = solve(
+        guarded, y0, times, np.array([[1.0]]), rtol=1e-5, atol=1e-7, return_stats=True
+    )
+    hist = np.asarray(hist)[0]
+    assert int(stats["rejected_steps"][0]) < 10
+    np.testing.assert_allclose(hist[:, 0], np.exp(-times), rtol=1e-4)
+    np.testing.assert_array_equal(hist[:, 1], y0[0, 1])
