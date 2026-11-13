@@ -32,9 +32,6 @@ jax.config.update("jax_enable_x64", True)
 requires_cuda = pytest.mark.skipif(
     not _target.available(), reason="no device to solve on"
 )
-requires_sensitivities = pytest.mark.skipif(
-    _target.TARGET == "cpu", reason="forward sensitivities need Enzyme on a CUDA device"
-)
 
 try:  # SuiteSparse's AMD, out of a wheel and with no system library
     from cvxopt import amd as _amd  # noqa: F401
@@ -469,7 +466,6 @@ def test_the_table_driven_form_solves_what_the_unrolled_one_does(monkeypatch):
 
 
 @requires_cuda
-@requires_sensitivities
 @requires_amd
 def test_gradients_survive_the_sparse_solver():
     """The joint system only ever asks the solver for the n_vars block."""
@@ -484,4 +480,10 @@ def test_gradients_survive_the_sparse_solver():
     p0 = jnp.asarray([50.0, 1.0])
     builtin = jax.grad(loss)(p0)
     got = jax.grad(loss)(p0, sparsity=_ring(6))
-    np.testing.assert_allclose(np.asarray(got), np.asarray(builtin), rtol=1e-7)
+    # On the CPU target the sensitivities are finite differences, good to
+    # about 1e-9 of the state's scale whatever the tolerance: the component of
+    # this gradient that is itself ~2e-10 agrees to 1e-13, not to 1e-7 of itself.
+    atol = 1e-12 if _target.TARGET == "cpu" else 0.0
+    np.testing.assert_allclose(
+        np.asarray(got), np.asarray(builtin), rtol=1e-7, atol=atol
+    )

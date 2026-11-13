@@ -22,8 +22,7 @@ from modax.tsit5 import solve as tsit5_solve
 jax.config.update("jax_enable_x64", True)
 
 requires_cuda = pytest.mark.skipif(
-    not _target.available() or _target.TARGET == "cpu",
-    reason="forward sensitivities need Enzyme on a CUDA device",
+    not _target.available(), reason="no device to solve on"
 )
 both_solvers = pytest.mark.parametrize(
     "solve_fn, kwargs",

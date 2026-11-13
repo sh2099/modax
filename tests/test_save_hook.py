@@ -26,9 +26,6 @@ jax.config.update("jax_enable_x64", True)
 requires_cuda = pytest.mark.skipif(
     not _target.available(), reason="no device to solve on"
 )
-requires_sensitivities = pytest.mark.skipif(
-    _target.TARGET == "cpu", reason="forward sensitivities need Enzyme on a CUDA device"
-)
 
 N_SAVE = 33
 
@@ -119,7 +116,6 @@ def test_save_history_false_needs_a_hook():
 
 
 @requires_cuda
-@requires_sensitivities
 def test_hook_sees_the_joint_state_of_a_sensitivity_solve():
     """With ``sensitivity`` the hook reads ``[y, S]`` and can store a tangent.
 
@@ -226,7 +222,6 @@ def _quantity_histories(quantities, n_outputs):
 
 
 @requires_cuda
-@requires_sensitivities
 @pytest.mark.parametrize(
     "quantities, n_outputs", [(energy_and_position, 2), (energy_alone, 1)]
 )
@@ -252,7 +247,6 @@ def test_quantity_hook_stores_the_quantities(quantities, n_outputs):
 
 
 @requires_cuda
-@requires_sensitivities
 @pytest.mark.parametrize(
     "quantities, n_outputs", [(energy_and_position, 2), (energy_alone, 1)]
 )

@@ -139,10 +139,22 @@ Shared support modules:
   one trajectory's integration in a device function of its index, which the
   CUDA kernel calls with its thread's index and `ensemble_driver` calls from a
   `prange` loop. The CPU target has no Enzyme: Rodas5P's Jacobian is
-  `_make_difference_jacobian` (coloured forward differences, CVODE's step
-  rule) and anything that needs forward sensitivities raises
-  `NotImplementedError` (`require_sensitivities`). `tests/test_cpu_target.py`
-  pins it.
+  `_make_difference_jacobian` (coloured forward differences) and the
+  directional derivatives behind the forward sensitivities come from
+  `_differences.py`. CPU device code is compiled with numba's IEEE error
+  model, because an exception raised inside the parallel loop is lost along
+  with the rest of that thread's trajectories; for the same reason an
+  out-of-bounds index only shows under `NUMBA_BOUNDSCHECK=1 MODAX_SERIAL=1`,
+  which runs the loop serially, and the suite should be run that way after
+  any change to a kernel. `tests/test_cpu_target.py` pins the target.
+- **`_differences.py`** — `difference_tangent` and `difference_second_tangent`,
+  the CPU target's stand-ins for `numba_enzyme.jvp` and its composition, with
+  Enzyme's calling convention so `_sensitivity.py` and the kernel use either.
+  Central differences with steps sized from the state and the parameters; a
+  parameter that is exactly zero is stepped on the scale of the row's
+  smallest nonzero entry. The second-order one sets the accuracy of the
+  sensitivities, not just the order: its steps are sized by the state's norm
+  because the finer per-component rule cost two digits at zero crossings.
 - **`_numba_common.py`** — what both kernels share: the `cuda.jit` coercion
   for user callbacks, the per-call `SolveSettings`, the `PIDGains` and the
   step-controller device function (`make_step_controller`, which both kernels

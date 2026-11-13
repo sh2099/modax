@@ -4,6 +4,8 @@ The private modules underlying `solve`.
 
 ::: modax._codegen
 
+::: modax._differences
+
 ::: modax._jax_common
 
 ::: modax._jax_numba_custom_call

@@ -306,19 +306,102 @@ def test_quantity_hook_stores_what_the_history_holds():
     np.testing.assert_array_equal(np.asarray(final)[0, 0], hist[0, -1])
 
 
-# --- what the target does not have -----------------------------------------------------------
+# --- derivatives without Enzyme ------------------------------------------------------------
 
 
-def test_derivatives_are_refused_not_wrong():
-    def final_state(p):
-        return solve(robertson, ROBERTSON_Y0, ROBERTSON_TIMES, p, rtol=1e-6, atol=1e-8)[
-            0, -1
+def mixed(y, t, p):
+    """Nonlinear in the state, the parameters and the time, with all three coupled."""
+    return (
+        p[0] * y[0] * y[1] + math.sin(t) * y[2] + p[2] * y[0],
+        math.exp(-p[1] * y[1]) * y[2] * y[2] + t * y[0] + p[2] * p[2],
+        y[0] / (1.0 + y[2] * y[2]) + p[0] * p[1] * t * t + p[2] * y[1],
+    )
+
+
+def mixed_jax(y, t, p):
+    return jnp.stack(
+        [
+            p[0] * y[0] * y[1] + jnp.sin(t) * y[2] + p[2] * y[0],
+            jnp.exp(-p[1] * y[1]) * y[2] * y[2] + t * y[0] + p[2] * p[2],
+            y[0] / (1.0 + y[2] * y[2]) + p[0] * p[1] * t * t + p[2] * y[1],
         ]
+    )
 
-    with pytest.raises(NotImplementedError, match="forward sensitivities"):
-        jax.jacfwd(final_state)(jnp.asarray(ROBERTSON_P))
-    with pytest.raises(NotImplementedError, match="forward sensitivities"):
-        tsit5_final = lambda p: tsit5.solve(  # noqa: E731
-            lorenz, np.ones(3), np.linspace(0.0, 1.0, 3), p
-        )[0, -1]
-        jax.jacfwd(tsit5_final)(jnp.asarray([10.0, 28.0, 8.0 / 3.0]))
+
+# Sizes spread over four decades, one state and one parameter exactly zero.
+MIXED_Y = np.array([3.0e-4, 2.0, 0.0])
+MIXED_T = 0.7
+MIXED_P = np.array([40.0, 0.25, 0.0])
+MIXED_DIRECTIONS = [
+    (np.array([1.0, 0.0, 0.0]), 0.0, np.zeros(3)),
+    (np.array([0.0, 0.0, 1.0]), 0.0, np.zeros(3)),  # along the zero state
+    (np.array([2.0e3, -5.0e-2, 7.0]), 0.0, np.zeros(3)),  # sizes unlike the state's
+    (np.zeros(3), 0.0, np.array([0.0, 1.0, 0.0])),
+    (np.zeros(3), 0.0, np.array([0.0, 0.0, 1.0])),  # along the zero parameter
+    (np.zeros(3), 1.0, np.zeros(3)),
+    (np.array([1.0e2, 0.3, -2.0]), 0.0, np.array([1.0, 0.0, 0.0])),  # a sensitivity's
+]
+
+
+def _directional(fn, y, t, p, direction):
+    dy, dt, dp = direction
+    return jax.jvp(
+        fn,
+        (jnp.asarray(y), jnp.asarray(t), jnp.asarray(p)),
+        (jnp.asarray(dy), jnp.asarray(dt), jnp.asarray(dp)),
+    )[1]
+
+
+@pytest.mark.parametrize("direction", range(len(MIXED_DIRECTIONS)))
+def test_difference_tangent_matches_autodiff(direction):
+    """``Df[u]`` for state, parameter, time and mixed directions, zeros included."""
+    from modax._differences import difference_tangent
+
+    tangent = difference_tangent(mixed, 3, 3, 3)
+    dy, dt, dp = MIXED_DIRECTIONS[direction]
+    out = np.empty(3)
+    tangent(out, MIXED_Y, MIXED_T, MIXED_P, dy, dt, dp)
+    expected = np.asarray(
+        _directional(mixed_jax, MIXED_Y, MIXED_T, MIXED_P, MIXED_DIRECTIONS[direction])
+    )
+    np.testing.assert_allclose(
+        out, expected, rtol=1e-8, atol=1e-9 * np.abs(expected).max()
+    )
+
+
+def test_difference_tangent_reads_only_the_state_of_an_augmented_vector():
+    """A caller hands over its whole ``[y, S]`` row; only the state is the state."""
+    from modax._differences import difference_tangent
+
+    tangent = difference_tangent(mixed, 3, 3, 3)
+    dy, dt, dp = MIXED_DIRECTIONS[-1]
+    alone, within = np.empty(3), np.empty(3)
+    tangent(alone, MIXED_Y, MIXED_T, MIXED_P, dy, dt, dp)
+    augmented = np.concatenate([MIXED_Y, 1.0e9 * np.ones(6)])
+    tangent(within, augmented, MIXED_T, MIXED_P, dy, dt, dp)
+    np.testing.assert_array_equal(within, alone)
+
+
+@pytest.mark.parametrize("outer", ["state", "time"])
+def test_difference_second_tangent_matches_autodiff(outer):
+    """``D2f[u, v]`` with ``u`` a sensitivity's direction and ``v`` a stage increment or time."""
+    from modax._differences import difference_second_tangent
+
+    second = difference_second_tangent(mixed, 3, 3)
+    u = MIXED_DIRECTIONS[-1]
+    v = (
+        (np.array([1.0e-5, 4.0e-2, 3.0e-3]), 0.0, np.zeros(3))
+        if outer == "state"
+        else (np.zeros(3), 1.0, np.zeros(3))
+    )
+    zero = (np.zeros(3), 0.0, np.zeros(3))
+    out = np.empty(3)
+    second(out, MIXED_Y, MIXED_T, MIXED_P, *u, *v, *zero)
+
+    def along_u(y, t, p):
+        return _directional(mixed_jax, y, t, p, u)
+
+    expected = np.asarray(_directional(along_u, MIXED_Y, MIXED_T, MIXED_P, v))
+    # In units of the term's largest component: an entry far below that is
+    # noise, which is all a Jacobian block that only sets the order needs.
+    assert np.abs(out - expected).max() < 5e-5 * np.abs(expected).max()

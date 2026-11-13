@@ -18,6 +18,7 @@ the in-package target has replaced.
 | `run_pk.py` | P(k): accuracy against CLASS, step counts, timings for sparse/dense and float32/float64 LU. Writes `results/`. |
 | `check_rhs_jacobian.py` | DISCO-EB's compiled right-hand side and the finite-difference Jacobian against JAX autodiff of the same model. |
 | `check_radau.py` | A few perturbation modes against SciPy Radau. |
+| `measure_derivatives.py` | Derivative accuracy and cost: the two sensitivity layouts against each other, and the checks of `test_solve_eb_derivatives` that do not depend on bitwise-equal inputs. |
 | `jacobian_tools.py` | The target's Jacobian writer as a host-callable function, for the two checks. |
 | `dump_gpu_reference.py` | Run on a CUDA machine: records what modax produces there. |
 | `compare_with_gpu.py` | Compares the CPU target with that record on identical inputs. |
@@ -54,8 +55,14 @@ then here: `.venv/bin/python compare_with_gpu.py gpu_reference.npz`.
 
 ## Known limits
 
-- No forward sensitivities on the CPU target: DISCO-EB's derivative tests and
-  the differentiable paths (`matter_power_spectrum_jax`, `cl_power_spectrum_jax`,
-  derivatives of `solve_eb`) raise `NotImplementedError`.
+- Derivatives on the CPU target are finite differences (`modax/_differences.py`).
+  DISCO-EB's `matter_power_spectrum_jax` and `cl_power_spectrum_jax` pass their
+  tests; a Jacobian of P(k) in the five densities costs about 25 to 30 plain
+  solves. `test_solve_eb_derivatives` fails: it requires two launches whose
+  densities differ by one unit in the last place (NumPy against XLA's
+  `Tcmb**4`) to agree to 1e-12, and with a finite-difference Jacobian the
+  solve moves by about 1e-6 of its scale for such a change.
+  `measure_derivatives.py` runs the rest of that test's checks and records
+  costs.
 - Tables made with `cuda.to_device` are frozen into the code compiled against
   them; only `cuda.device_array` buffers can be refilled.

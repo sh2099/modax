@@ -59,24 +59,13 @@ import numpy.typing as npt
 from jax.custom_derivatives import SymbolicZero
 from jax.typing import ArrayLike
 
+from modax._differences import difference_second_tangent, difference_tangent
 from modax._jax_numba_custom_call import compile_target
 from modax._numba_common import OdeFn, SolveOutput, Solver, as_cuda_device
-from modax._target import (
-    TARGET,
-    DeviceFunction,
-    Signature,
-    cuda,
-    require_sensitivities,
-    types,
-)
+from modax._target import TARGET, DeviceFunction, Signature, cuda, types
 
 if TARGET == "cuda":
     from numba_enzyme import jvp
-else:
-
-    def jvp(*args: Any, **kwargs: Any) -> Any:
-        """Enzyme's forward sweep, which the CPU target does not have."""
-        require_sensitivities("a derivative of a device function")
 
 
 Tangent = Callable[..., None]
@@ -175,8 +164,10 @@ def make_tangent(ode_fn: OdeFn, n_vars: int, n_params: int) -> Tangent:
     derivative: seed ``(S_k, 0, e_k)`` and it comes out whole.  Assembling it
     from unit columns instead costs ``n_vars + 1`` sweeps where this costs one.
     """
+    if TARGET == "cpu":
+        # No Enzyme: the same derivative by central differences.
+        return difference_tangent(ode_fn, n_vars, n_vars, n_params)
     # For the kernel's own target (compile_target), so the two link on Blackwell.
-    require_sensitivities("a directional derivative of the right-hand side")
     return jvp(
         as_cuda_device(ode_fn),
         signature=_primal_signature(n_vars, n_params),
@@ -203,7 +194,8 @@ def make_second_tangent(ode_fn: OdeFn, n_vars: int, n_params: int) -> Tangent:
     inner direction's own variation; every caller here passes zero for it,
     which leaves the plain bilinear form.
     """
-    require_sensitivities("a second derivative of the right-hand side")
+    if TARGET == "cpu":
+        return difference_second_tangent(ode_fn, n_vars, n_params)
     signature = _primal_signature(n_vars, n_params)
     cc = compile_target()
     return jvp(
@@ -357,19 +349,21 @@ def quantity_hook(
 
         return store_values
 
-    require_sensitivities("a quantity hook that stores tangents")
     n_sens = sensitivity.n_sens
     n_y0_dirs = sensitivity.n_y0_dirs
     param_cols = sensitivity.param_seed_columns
     length = max(n_vars, n_params)
     width = n_outputs * (1 + n_sens)
     seeds = seed_table(sensitivity)
-    # For the kernel's own target (compile_target), so the two link on Blackwell.
-    tangent_of = jvp(
-        fn_device,
-        signature=_quantity_signature(n_outputs, n_vars, n_params),
-        cc=compile_target(),
-    )
+    if TARGET == "cpu":
+        tangent_of = difference_tangent(fn_device, n_outputs, n_vars, n_params)
+    else:
+        # For the kernel's own target (compile_target), so the two link on Blackwell.
+        tangent_of = jvp(
+            fn_device,
+            signature=_quantity_signature(n_outputs, n_vars, n_params),
+            cc=compile_target(),
+        )
 
     @cuda.jit(device=True)
     def store_values_and_tangents(save_idx, y, t, p_row, acc):

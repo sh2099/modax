@@ -32,10 +32,13 @@ integration in a device function of the trajectory index, which a CUDA kernel
 calls with its thread's index and :func:`ensemble_driver` calls from a
 parallel loop.
 
-On the CPU there is no Enzyme (it has no macOS build), so derivatives are
-finite differences and the forward sensitivities, which need second
-derivatives, are not available; see ``modax/rodas5P.py`` and
-:func:`require_sensitivities`.
+On the CPU there is no Enzyme (it has no macOS build), so every derivative of
+a user's function is a finite difference: the Jacobian in
+``modax/rodas5P.py`` (``_make_difference_jacobian``) and the directional
+derivatives the forward sensitivities are built from in
+[`modax._differences`][]. They are accurate to rounding over a step, not to
+rounding, and they cannot see past a switch in the function the way a
+derivative does; both modules say what that costs.
 """
 
 from __future__ import annotations
@@ -48,6 +51,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal
 import numpy as np
 
 _ENV_VAR = "MODAX_TARGET"
+_SERIAL_ENV_VAR = "MODAX_SERIAL"
 
 
 def _cuda_importable() -> bool:
@@ -146,18 +150,26 @@ def ensemble_driver(trajectory: Any, n_args: int) -> Callable[..., None]:
     ensemble as its leading axis. Trajectories take very different numbers of
     steps, so the caller should run the loop with ``numba.parallel_chunksize(1)``
     (:func:`run_ensemble` does).
+
+    An exception raised inside the parallel loop is lost, and with it whatever
+    the thread had left to do. Device code raises none of its own, but numba's
+    bounds checking does (``NUMBA_BOUNDSCHECK=1``), so an out-of-bounds index
+    in a kernel shows up only when the loop is serial: ``MODAX_SERIAL=1`` makes
+    it one, for debugging. Without bounds checking such an index reads or
+    writes whatever is there, as it does on the device.
     """
     from numba import njit, prange
 
+    serial = bool(os.environ.get(_SERIAL_ENV_VAR))
     names = ", ".join(f"a{k}" for k in range(n_args))
     source = (
         f"def driver({names}):\n"
-        f"    for i in prange(a0.shape[0]):\n"
+        f"    for i in {'range' if serial else 'prange'}(a0.shape[0]):\n"
         f"        trajectory(i, {names})\n"
     )
     scope: dict[str, Any] = {}
     exec(source, {"prange": prange, "trajectory": trajectory}, scope)  # noqa: S102
-    return njit(parallel=True, error_model="numpy")(scope["driver"])
+    return njit(parallel=not serial, error_model="numpy")(scope["driver"])
 
 
 def run_ensemble(driver: Callable[..., None], *args: Any) -> None:
@@ -166,12 +178,3 @@ def run_ensemble(driver: Callable[..., None], *args: Any) -> None:
 
     with numba.parallel_chunksize(1):
         driver(*args)
-
-
-def require_sensitivities(what: str) -> None:
-    """Refuse, on the CPU target, something that needs Enzyme's second derivatives."""
-    if TARGET == "cpu":
-        raise NotImplementedError(
-            f"{what} needs forward sensitivities, which the CPU target does not have yet: "
-            "they are built on Enzyme, which this platform lacks"
-        )

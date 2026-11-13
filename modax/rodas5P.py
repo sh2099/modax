@@ -67,7 +67,6 @@ from modax._target import (
     DeviceFunction,
     cuda,
     ensemble_driver,
-    require_sensitivities,
     types,
 )
 
@@ -368,6 +367,7 @@ def _make_literal_seed_jacobian(
 
 
 _SQRT_EPS = math.sqrt(float(np.finfo(np.float64).eps))
+_QUARTER_EPS = math.sqrt(_SQRT_EPS)
 
 
 def _make_difference_jacobian(
@@ -398,6 +398,21 @@ def _make_difference_jacobian(
     divided by the step its own column took, which is why this is written
     against the pattern rather than as a directional derivative along the
     group's indicator. Time is stepped by ``sqrt(eps) max(|t|, |dt|)``.
+
+    Forward differences at ``sqrt(eps)`` leave each entry with rounding noise
+    of about ``1e-8`` of its size, and a stiff step multiplies an error in
+    ``J`` or ``df/dt`` by ``h |J|``: on DISCO-EB's hierarchy the solution moves
+    by ``1e-6`` of its scale when a parameter changes by one unit in its last
+    place, well inside the tolerance but far from Enzyme's reproducibility.
+    Central differences at ``eps**(1/3)`` with a second-order ``df/dt``
+    brought that to ``1e-7`` and were not kept: with the central state
+    difference, whose step is four hundred times wider, RECFAST's
+    free-electron fraction came out 10 percent wrong at ``z = 10`` for some
+    cosmologies. Its right-hand side switches terms on thresholds in the state
+    (helium's at ``x_H = 0.9999999``, for one), which a wider step straddles
+    more often; that is the likely cause, not a demonstrated one. A difference
+    cannot see past a switch the way a derivative does, so the step stays as
+    small as rounding allows.
 
     With no pattern every column is its own colour and every row an entry.
     """
@@ -478,8 +493,6 @@ def _make_kernel(
     can see.
     """
     spec, sparsity, lu_precision = options.spec, options.sparsity, options.lu_precision
-    if spec is not None:
-        require_sensitivities("a Rodas5P solve with a sensitivity spec")
     tf_index, array_rhs = options.tf_index, options.array_rhs
     # Both compile-time constants: numba prunes the hook call and the history
     # writes it does not need, so a solve without a hook compiles as before.
@@ -553,7 +566,7 @@ def _make_kernel(
         second_tangent = make_second_tangent(ode_fn, n_vars, n_params)
 
         @cuda.jit(device=True)
-        def write_sensitivity_time_derivative(y_local, t, p_row, dT):
+        def write_sensitivity_time_derivative(y_local, t, p_row, dT, dt):
             """``dF/dt`` for the sensitivity rows of the joint system.
 
             It is ``d/dt (J_y S_k + J_p_k)`` at fixed state -- a second
@@ -588,10 +601,55 @@ def _make_kernel(
                 for row in range(n_vars):
                     dT[base + row] = column[row]
 
+        if TARGET == "cpu":
+            sensitivity_rhs = make_tangent(ode_fn, n_vars, n_params)
+
+            @cuda.jit(device=True)
+            def write_sensitivity_time_derivative(y_local, t, p_row, dT, dt):  # noqa: F811
+                """The same rows without Enzyme: the sensitivity right-hand side differenced in time.
+
+                ``d/dt (J_y S_k + J_p e_k)`` is the time derivative of the
+                directional derivative the augmented right-hand side already
+                evaluates, so it is that derivative at ``t + h`` less its value
+                at ``t``, over ``h = eps**(1/4) max(|t|, |dt|)``: the step the
+                Jacobian writer takes for the state block's ``df/dt``, widened
+                because the function differenced is itself a difference. One
+                sided, so that nothing is evaluated before the trajectory's
+                start. Like the block it belongs to, an error here costs
+                order, not convergence.
+                """
+                seed = cuda.const.array_like(seeds)
+                here = cuda.local.array(n_vars, types.float64)
+                ahead = cuda.local.array(n_vars, types.float64)
+                t_ahead = t + _QUARTER_EPS * max(abs(t), abs(dt))
+                for k in range(n_sens):
+                    base = n_vars + k * n_vars
+                    start = 0 if k < n_y0_dirs else length - param_cols[k - n_y0_dirs]
+                    sensitivity_rhs(
+                        here,
+                        y_local,
+                        t,
+                        p_row,
+                        y_local[base : base + n_vars],
+                        0.0,
+                        seed[start : start + n_params],
+                    )
+                    sensitivity_rhs(
+                        ahead,
+                        y_local,
+                        t_ahead,
+                        p_row,
+                        y_local[base : base + n_vars],
+                        0.0,
+                        seed[start : start + n_params],
+                    )
+                    for row in range(n_vars):
+                        dT[base + row] = (ahead[row] - here[row]) / (t_ahead - t)
+
     else:
 
         @cuda.jit(device=True)
-        def write_sensitivity_time_derivative(y_local, t, p_row, dT):
+        def write_sensitivity_time_derivative(y_local, t, p_row, dT, dt):
             pass
 
     # --- the negated Jacobian, straight into the thread's own buffer ---------
@@ -653,8 +711,12 @@ def _make_kernel(
     else:
         # No Enzyme here: the same -J and df/dt by forward differences of the
         # right-hand side, one evaluation per colour group.
+        # Of the state alone: with a spec ode_write is the joint [y, S]
+        # writer, n_aug wide, and the matrix is still the n_vars block.
         write_negated_jacobian = _make_difference_jacobian(
-            ode_write=ode_write,
+            ode_write=ode_write
+            if spec is None
+            else make_cuda_local_vector_writer(ode_fn, n_vars),
             structure=structure,
             pattern=sparsity,
             clear_matrix=clear_matrix,
@@ -927,7 +989,7 @@ def _make_kernel(
 
             dtgamma_inv = 1.0 / (dt_use * GAMMA)
             write_negated_jacobian(y, t, p_row, lu_buf, dT, rtol, atol, dt_use)
-            write_sensitivity_time_derivative(y, t, p_row, dT)
+            write_sensitivity_time_derivative(y, t, p_row, dT, dt_use)
             for d in range(n_vars):
                 lu_buf[diag[d]] += lu_dtype(dtgamma_inv)
             factorize_local(lu_buf, ipiv_buf)

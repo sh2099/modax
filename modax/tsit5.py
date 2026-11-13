@@ -43,7 +43,6 @@ from modax._target import (
     DeviceFunction,
     cuda,
     ensemble_driver,
-    require_sensitivities,
     types,
 )
 
@@ -438,8 +437,6 @@ def _make_kernel(
     does a local array. Every thread touches only its own column, so nothing
     synchronises and a thread past the ensemble's end simply leaves.
     """
-    if spec is not None:
-        require_sensitivities("a Tsit5 solve with a sensitivity spec")
     body = _make_body(ode_fn, n_vars, gains, spec)
     n_system = n_vars if spec is None else spec.n_aug
 
