@@ -1,0 +1,229 @@
+[run.sh] 2026-11-13T20:14:08+00:00 host cap006a.ast.cam.ac.uk GPU 0 DISCO-EB v2.0.1
+[run.sh] /tmp/sh2099-disco-eb/scripts/pytest_main.py -v -p no:cacheprovider -rA --benchmark-disable tests
+jax:    0.6.2
+jaxlib: 0.6.2
+numpy:  2.2.6
+python: 3.10.22 (main, Oct  9 2026, 15:21:30) [Clang 22.1.3 ]
+device info: Tesla P100-PCIE-16GB-1, 1 local devices"
+process_count: 1
+platform: uname_result(system='Linux', node='cap006a.ast.cam.ac.uk', release='5.14.0-687.66.1.el9_8.x86_64', version='#1 SMP PREEMPT_DYNAMIC Wed Nov 4 01:06:19 EST 2026', machine='x86_64')
+============================= test session starts ==============================
+platform linux -- Python 3.10.22, pytest-9.2.0, pluggy-1.7.0 -- /tmp/sh2099-disco-eb/venv310/bin/python
+benchmark: 5.3.1 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /tmp/sh2099-disco-eb/DISCO-EB
+configfile: pyproject.toml
+plugins: benchmark-5.3.1
+collecting ... collected 74 items
+
+tests/test_boundary.py::test_the_interface_exports_what_it_lists PASSED  [  1%]
+tests/test_boundary.py::test_the_package_does_not_import_discocmb PASSED [  2%]
+tests/test_component.py::test_the_built_rhs_evaluates_the_equations PASSED [  4%]
+tests/test_component.py::test_the_driver_injects_by_name_in_dependency_order PASSED [  5%]
+tests/test_component.py::test_only_what_the_derivatives_need_is_compiled PASSED [  6%]
+tests/test_component.py::test_initial_conditions_are_declared_on_the_states PASSED [  8%]
+tests/test_component.py::test_vector_states_are_arrays_and_their_output_buffers_are_provided PASSED [  9%]
+tests/test_component.py::test_the_jacobian_pattern_is_traced_through_the_providers PASSED [ 10%]
+tests/test_component.py::test_providers_of_inputs_alone_are_not_traced PASSED [ 12%]
+tests/test_component.py::test_a_branch_on_the_state_reads_every_input PASSED [ 13%]
+tests/test_component.py::test_settings_are_class_attributes_loaded_from_the_environment FAILED [ 14%]
+tests/test_component.py::test_device_names_are_replaced_when_a_provider_is_compiled PASSED [ 16%]
+tests/test_component.py::test_partial_writes_of_a_vector_accumulate PASSED [ 17%]
+tests/test_component.py::test_matrix_states_and_tuple_constants PASSED   [ 18%]
+tests/test_component.py::test_a_device_function_a_component_holds_is_called_through_a_closure PASSED [ 20%]
+tests/test_component.py::test_every_state_needs_a_derivative PASSED      [ 21%]
+tests/test_component.py::test_an_unprovided_dependency_names_the_provider PASSED [ 22%]
+tests/test_component.py::test_two_providers_of_one_quantity_are_rejected PASSED [ 24%]
+tests/test_component.py::test_names_that_clash_with_state_elements_are_rejected PASSED [ 25%]
+tests/test_component.py::test_output_is_only_for_vector_derivatives_and_initial_conditions PASSED [ 27%]
+tests/test_component.py::test_cycles_are_reported PASSED                 [ 28%]
+tests/test_component.py::test_methods_are_providers_with_or_without_self_or_staticmethod PASSED [ 29%]
+tests/test_component.py::test_interactions_own_no_state PASSED           [ 31%]
+tests/test_component.py::test_providers_are_plain_positional_functions PASSED [ 32%]
+tests/test_eb_model.py::test_the_state_order_is_the_layout[flat-lcdm] PASSED [ 33%]
+tests/test_eb_model.py::test_the_state_order_is_the_layout[dark-energy] PASSED [ 35%]
+tests/test_eb_model.py::test_the_state_order_is_the_layout[massive-nu] PASSED [ 36%]
+tests/test_eb_model.py::test_the_state_order_is_the_layout[ragged-blocks] PASSED [ 37%]
+tests/test_eb_model.py::test_the_rhs_builds_and_is_finite[flat-lcdm] PASSED [ 39%]
+tests/test_eb_model.py::test_the_rhs_builds_and_is_finite[dark-energy] PASSED [ 40%]
+tests/test_eb_model.py::test_the_rhs_builds_and_is_finite[massive-nu] PASSED [ 41%]
+tests/test_eb_model.py::test_the_rhs_builds_and_is_finite[ragged-blocks] PASSED [ 43%]
+tests/test_eb_model.py::test_the_einstein_sources_sum_over_the_enabled_species PASSED [ 44%]
+tests/test_eb_model.py::test_thomson_scattering_writes_the_photon_and_baryon_derivatives PASSED [ 45%]
+tests/test_eb_model.py::test_a_hierarchy_needs_an_octupole PASSED        [ 47%]
+tests/test_eb_model.py::test_the_truncations_are_the_components_settings PASSED [ 48%]
+tests/test_eb_model.py::test_the_initial_state_and_sparsity_come_from_the_components PASSED [ 50%]
+tests/test_eb_model.py::test_make_initial_states_uses_the_model PASSED   [ 51%]
+tests/test_eb_model.py::test_the_pressure_sums_over_the_species_and_gives_the_comoving_curvature PASSED [ 52%]
+tests/test_eb_sparsity.py::test_the_pattern_is_the_jacobians[flat-lcdm] PASSED [ 54%]
+tests/test_eb_sparsity.py::test_the_pattern_is_the_jacobians[dark-energy] PASSED [ 55%]
+tests/test_eb_sparsity.py::test_the_pattern_is_the_jacobians[massive-nu] PASSED [ 56%]
+tests/test_eb_sparsity.py::test_the_pattern_is_the_jacobians[ragged-blocks] PASSED [ 58%]
+tests/test_eb_sparsity.py::test_the_pattern_has_the_physics_structure[flat-lcdm] PASSED [ 59%]
+tests/test_eb_sparsity.py::test_the_pattern_has_the_physics_structure[dark-energy] PASSED [ 60%]
+tests/test_eb_sparsity.py::test_the_pattern_has_the_physics_structure[massive-nu] PASSED [ 62%]
+tests/test_eb_sparsity.py::test_the_pattern_has_the_physics_structure[ragged-blocks] PASSED [ 63%]
+tests/test_eb_sparsity.py::test_the_flat_lcdm_pattern_is_the_expected_size PASSED [ 64%]
+tests/test_eb_sparsity.py::test_amd_fills_in_only_the_core[flat-lcdm] PASSED [ 66%]
+tests/test_eb_sparsity.py::test_amd_fills_in_only_the_core[dark-energy] PASSED [ 67%]
+tests/test_eb_sparsity.py::test_amd_fills_in_only_the_core[massive-nu] PASSED [ 68%]
+tests/test_eb_sparsity.py::test_amd_fills_in_only_the_core[ragged-blocks] PASSED [ 70%]
+tests/test_eb_sparsity.py::test_the_solver_and_the_kernel_share_one_layout PASSED [ 71%]
+tests/test_eb_sparsity.py::test_undeclared_diagonals_get_the_factorisations_slots[flat-lcdm] PASSED [ 72%]
+tests/test_eb_sparsity.py::test_undeclared_diagonals_get_the_factorisations_slots[dark-energy] PASSED [ 74%]
+tests/test_eb_sparsity.py::test_undeclared_diagonals_get_the_factorisations_slots[massive-nu] PASSED [ 75%]
+tests/test_eb_sparsity.py::test_undeclared_diagonals_get_the_factorisations_slots[ragged-blocks] PASSED [ 77%]
+tests/test_eb_sparsity.py::test_the_exact_pattern_needs_no_more_colours_than_the_dense_core[flat-lcdm] PASSED [ 78%]
+tests/test_eb_sparsity.py::test_the_exact_pattern_needs_no_more_colours_than_the_dense_core[dark-energy] PASSED [ 79%]
+tests/test_eb_sparsity.py::test_the_exact_pattern_needs_no_more_colours_than_the_dense_core[massive-nu] PASSED [ 81%]
+tests/test_eb_sparsity.py::test_the_exact_pattern_needs_no_more_colours_than_the_dense_core[ragged-blocks] PASSED [ 82%]
+tests/test_eb_sparsity.py::test_the_colouring_keeps_every_entry_apart PASSED [ 83%]
+tests/test_perturbations.py::test_matter_power_spectrum_matches_class[N1] PASSED [ 85%]
+tests/test_perturbations.py::test_matter_power_spectrum_matches_class[N128] PASSED [ 86%]
+tests/test_perturbations.py::test_matter_power_spectrum_derivatives PASSED [ 87%]
+tests/test_perturbations.py::test_solve_eb_keeps_what_the_history_holds PASSED [ 89%]
+tests/test_perturbations.py::test_solve_eb_comoving_curvature_is_conserved_outside_the_horizon PASSED [ 90%]
+tests/test_perturbations.py::test_solve_eb_derivatives PASSED            [ 91%]
+tests/test_reionization.py::test_reionization_optical_depth PASSED       [ 93%]
+tests/test_reionization.py::test_no_reionization_by_default PASSED       [ 94%]
+tests/test_split.py::test_the_recombination_block_publishes_the_thermal_quantities PASSED [ 95%]
+tests/test_split.py::test_the_recombination_block_steps_on_its_own PASSED [ 97%]
+tests/test_thermo.py::test_recfast_matches_class[N1] PASSED              [ 98%]
+tests/test_thermo.py::test_recfast_matches_class[N128] PASSED            [100%]
+
+=================================== FAILURES ===================================
+________ test_settings_are_class_attributes_loaded_from_the_environment ________
+
+self = Setting(None = 3, default 3)
+owner = <class 'test_component.test_settings_are_class_attributes_loaded_from_the_environment.<locals>.Lower'>
+name = 'lmax'
+
+    def __set_name__(self, owner, name):
+        if not (name.isidentifier() and name.isupper()):
+>           raise ValueError(
+                f"{owner.__name__}: setting {name!r} must be an UPPER_CASE identifier"
+            )
+E           ValueError: Lower: setting 'lmax' must be an UPPER_CASE identifier
+
+src/discoeb/component.py:262: ValueError
+
+The above exception was the direct cause of the following exception:
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fdfa87b1210>
+
+    def test_settings_are_class_attributes_loaded_from_the_environment(monkeypatch):
+        monkeypatch.setenv("DISCO_LMAX_T", "7")
+        monkeypatch.setenv("DISCO_SCALE", "2.5")
+        monkeypatch.setenv("DISCO_FLAG", "yes")
+    
+        class Tuned(Component):
+            LMAX_T = Setting(3)
+            SCALE = Setting(1.0)
+            FLAG = Setting(False)
+            UNSET = Setting(4)
+    
+        assert (Tuned.LMAX_T, Tuned.SCALE, Tuned.FLAG, Tuned.UNSET) == (7, 2.5, True, 4)
+        assert Tuned.setting_names() == ("LMAX_T", "SCALE", "FLAG", "UNSET")
+        instance = Tuned(LMAX_T=11)
+        assert (instance.LMAX_T, instance.SCALE, Tuned.LMAX_T) == (11, 2.5, 7)
+        assert instance.constants() == {
+            "LMAX_T": 11,
+            "SCALE": 2.5,
+            "FLAG": True,
+            "UNSET": 4,
+        }
+        with pytest.raises(TypeError, match="has no settings \\['NOPE'\\]"):
+            Tuned(NOPE=1)
+    
+        class Derived(Tuned):
+            EXTRA = Setting("x")
+    
+        assert Derived.setting_names() == ("LMAX_T", "SCALE", "FLAG", "UNSET", "EXTRA")
+        assert Model([Hierarchy()]).nvar == 4 and Model([Hierarchy(LMAX=6)]).nvar == 7
+    
+        monkeypatch.setenv("DISCO_LMAX_T", "seven")
+        with pytest.raises(ValueError, match="not a int"):
+            load_setting("LMAX_T", 3)
+        with pytest.raises(ValueError, match="UPPER_CASE"):
+    
+>           class Lower(Component):
+E           RuntimeError: Error calling __set_name__ on 'Setting' instance 'lmax' in 'Lower'
+
+tests/test_component.py:373: RuntimeError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_boundary.py::test_the_interface_exports_what_it_lists
+PASSED tests/test_boundary.py::test_the_package_does_not_import_discocmb
+PASSED tests/test_component.py::test_the_built_rhs_evaluates_the_equations
+PASSED tests/test_component.py::test_the_driver_injects_by_name_in_dependency_order
+PASSED tests/test_component.py::test_only_what_the_derivatives_need_is_compiled
+PASSED tests/test_component.py::test_initial_conditions_are_declared_on_the_states
+PASSED tests/test_component.py::test_vector_states_are_arrays_and_their_output_buffers_are_provided
+PASSED tests/test_component.py::test_the_jacobian_pattern_is_traced_through_the_providers
+PASSED tests/test_component.py::test_providers_of_inputs_alone_are_not_traced
+PASSED tests/test_component.py::test_a_branch_on_the_state_reads_every_input
+PASSED tests/test_component.py::test_device_names_are_replaced_when_a_provider_is_compiled
+PASSED tests/test_component.py::test_partial_writes_of_a_vector_accumulate
+PASSED tests/test_component.py::test_matrix_states_and_tuple_constants
+PASSED tests/test_component.py::test_a_device_function_a_component_holds_is_called_through_a_closure
+PASSED tests/test_component.py::test_every_state_needs_a_derivative
+PASSED tests/test_component.py::test_an_unprovided_dependency_names_the_provider
+PASSED tests/test_component.py::test_two_providers_of_one_quantity_are_rejected
+PASSED tests/test_component.py::test_names_that_clash_with_state_elements_are_rejected
+PASSED tests/test_component.py::test_output_is_only_for_vector_derivatives_and_initial_conditions
+PASSED tests/test_component.py::test_cycles_are_reported
+PASSED tests/test_component.py::test_methods_are_providers_with_or_without_self_or_staticmethod
+PASSED tests/test_component.py::test_interactions_own_no_state
+PASSED tests/test_component.py::test_providers_are_plain_positional_functions
+PASSED tests/test_eb_model.py::test_the_state_order_is_the_layout[flat-lcdm]
+PASSED tests/test_eb_model.py::test_the_state_order_is_the_layout[dark-energy]
+PASSED tests/test_eb_model.py::test_the_state_order_is_the_layout[massive-nu]
+PASSED tests/test_eb_model.py::test_the_state_order_is_the_layout[ragged-blocks]
+PASSED tests/test_eb_model.py::test_the_rhs_builds_and_is_finite[flat-lcdm]
+PASSED tests/test_eb_model.py::test_the_rhs_builds_and_is_finite[dark-energy]
+PASSED tests/test_eb_model.py::test_the_rhs_builds_and_is_finite[massive-nu]
+PASSED tests/test_eb_model.py::test_the_rhs_builds_and_is_finite[ragged-blocks]
+PASSED tests/test_eb_model.py::test_the_einstein_sources_sum_over_the_enabled_species
+PASSED tests/test_eb_model.py::test_thomson_scattering_writes_the_photon_and_baryon_derivatives
+PASSED tests/test_eb_model.py::test_a_hierarchy_needs_an_octupole
+PASSED tests/test_eb_model.py::test_the_truncations_are_the_components_settings
+PASSED tests/test_eb_model.py::test_the_initial_state_and_sparsity_come_from_the_components
+PASSED tests/test_eb_model.py::test_make_initial_states_uses_the_model
+PASSED tests/test_eb_model.py::test_the_pressure_sums_over_the_species_and_gives_the_comoving_curvature
+PASSED tests/test_eb_sparsity.py::test_the_pattern_is_the_jacobians[flat-lcdm]
+PASSED tests/test_eb_sparsity.py::test_the_pattern_is_the_jacobians[dark-energy]
+PASSED tests/test_eb_sparsity.py::test_the_pattern_is_the_jacobians[massive-nu]
+PASSED tests/test_eb_sparsity.py::test_the_pattern_is_the_jacobians[ragged-blocks]
+PASSED tests/test_eb_sparsity.py::test_the_pattern_has_the_physics_structure[flat-lcdm]
+PASSED tests/test_eb_sparsity.py::test_the_pattern_has_the_physics_structure[dark-energy]
+PASSED tests/test_eb_sparsity.py::test_the_pattern_has_the_physics_structure[massive-nu]
+PASSED tests/test_eb_sparsity.py::test_the_pattern_has_the_physics_structure[ragged-blocks]
+PASSED tests/test_eb_sparsity.py::test_the_flat_lcdm_pattern_is_the_expected_size
+PASSED tests/test_eb_sparsity.py::test_amd_fills_in_only_the_core[flat-lcdm]
+PASSED tests/test_eb_sparsity.py::test_amd_fills_in_only_the_core[dark-energy]
+PASSED tests/test_eb_sparsity.py::test_amd_fills_in_only_the_core[massive-nu]
+PASSED tests/test_eb_sparsity.py::test_amd_fills_in_only_the_core[ragged-blocks]
+PASSED tests/test_eb_sparsity.py::test_the_solver_and_the_kernel_share_one_layout
+PASSED tests/test_eb_sparsity.py::test_undeclared_diagonals_get_the_factorisations_slots[flat-lcdm]
+PASSED tests/test_eb_sparsity.py::test_undeclared_diagonals_get_the_factorisations_slots[dark-energy]
+PASSED tests/test_eb_sparsity.py::test_undeclared_diagonals_get_the_factorisations_slots[massive-nu]
+PASSED tests/test_eb_sparsity.py::test_undeclared_diagonals_get_the_factorisations_slots[ragged-blocks]
+PASSED tests/test_eb_sparsity.py::test_the_exact_pattern_needs_no_more_colours_than_the_dense_core[flat-lcdm]
+PASSED tests/test_eb_sparsity.py::test_the_exact_pattern_needs_no_more_colours_than_the_dense_core[dark-energy]
+PASSED tests/test_eb_sparsity.py::test_the_exact_pattern_needs_no_more_colours_than_the_dense_core[massive-nu]
+PASSED tests/test_eb_sparsity.py::test_the_exact_pattern_needs_no_more_colours_than_the_dense_core[ragged-blocks]
+PASSED tests/test_eb_sparsity.py::test_the_colouring_keeps_every_entry_apart
+PASSED tests/test_perturbations.py::test_matter_power_spectrum_matches_class[N1]
+PASSED tests/test_perturbations.py::test_matter_power_spectrum_matches_class[N128]
+PASSED tests/test_perturbations.py::test_matter_power_spectrum_derivatives
+PASSED tests/test_perturbations.py::test_solve_eb_keeps_what_the_history_holds
+PASSED tests/test_perturbations.py::test_solve_eb_comoving_curvature_is_conserved_outside_the_horizon
+PASSED tests/test_perturbations.py::test_solve_eb_derivatives
+PASSED tests/test_reionization.py::test_reionization_optical_depth
+PASSED tests/test_reionization.py::test_no_reionization_by_default
+PASSED tests/test_split.py::test_the_recombination_block_publishes_the_thermal_quantities
+PASSED tests/test_split.py::test_the_recombination_block_steps_on_its_own
+PASSED tests/test_thermo.py::test_recfast_matches_class[N1]
+PASSED tests/test_thermo.py::test_recfast_matches_class[N128]
+FAILED tests/test_component.py::test_settings_are_class_attributes_loaded_from_the_environment
+================== 1 failed, 73 passed in 1088.10s (0:18:08) ===================
+exit 1 after 1103 s
