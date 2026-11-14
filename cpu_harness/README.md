@@ -12,7 +12,7 @@ imported by the package.
 | `run_discoeb_tests.py` | Runs DISCO-EB's own test suite on the CPU target. |
 | `make_gpu_reference.py` | Run on a CUDA machine with DISCO-EB's own environment: records P(k), histories, `solve_eb`, derivatives, thermal histories and step counts on the test suite's cosmologies. |
 | `compare_with_gpu.py` | Compares the CPU target with that record on identical inputs. Writes `results/gpu_comparison.json`. |
-| `reference/` | The record from DISCO-EB 2.0.1 on modax 0.3.0 on a Tesla P100 (2026-11-13), with its package list and test log. The `.npz` (14 MB) is not in git. |
+| `reference/` | `cuda-check/`: see below. Also the record from DISCO-EB 2.0.1 on modax 0.3.0 on a Tesla P100 (2026-11-13), with its package list and test log. The `.npz` (14 MB) is not in git. |
 
 ## Running
 
@@ -51,6 +51,28 @@ modax 0.4.0, DISCO-EB 2.0.1 (`6c48e2d`), Apple M4 Pro, 14 threads.
 - P(k), 128 modes: 0.03 s for one cosmology, 2.4 s for 128 (6.1 s on the
   P100; DISCO-EB quotes 0.22 s on an RTX 4070 SUPER), about 22 s to compile
   in a new process.
+
+## The CUDA path, checked on a GPU
+
+`reference/cuda-check/` holds a comparison of this branch (`ba31b7e`) with
+upstream `v0.4.0` on one Tesla P100, the two environments differing in the
+modax source alone:
+
+- the branch selects the CUDA target, and its `cuda`, `types` and dispatcher
+  class are numba-cuda-mlir's own objects;
+- every test present in both has the same outcome (216 passed, 2 failed, 2
+  skipped in each; `tests/test_cpu_target.py` skips on CUDA);
+- 126 output arrays of 33 solves are bitwise identical, step counts included;
+- the generated hierarchy kernel source is byte-identical for six
+  hierarchies;
+- warm solve times are within run-to-run scatter.
+
+Two limits. That card needs a sandbox, Python 3.10, CUDA 12, a newer
+numba-cuda-mlir and a patched Enzyme capability check, so this says nothing
+of the stock path (Python 3.11+, CUDA 13, capability 7.0+). And the
+three-block hierarchy sensitivities are NaN there in upstream and branch
+alike (one of the two failures), so on that path "identical" means "fails
+identically".
 
 ## How the target differs from CUDA
 

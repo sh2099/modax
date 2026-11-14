@@ -140,14 +140,14 @@ def _cpu_namespace() -> tuple[Any, Any, Any, Any, Any]:
         # Zeroed, not empty. With three blocks the hierarchy kernel hands a
         # reader the second-derivative coefficients of an upstream
         # sensitivity before anything has written them (found by starting
-        # every local array as NaN, MODAX_POISON=1). On the device that is
-        # whatever the stack held; the quintic's basis for that coefficient
-        # and its first derivative vanish at a node, so an Enzyme sweep there
-        # would multiply it by zero, though that has not been checked on a
-        # device. A difference steps along the direction instead: it sizes
-        # its step by the stale entry and evaluates off the node. Three
-        # blocks' sensitivities came out NaN on x86-64 until the entry was a
-        # number that does no harm.
+        # every local array as NaN, MODAX_POISON=1). A differenced sweep
+        # sizes its step by the stale entry, and three blocks' sensitivities
+        # came out NaN on x86-64 until the entry was a number that does no
+        # harm. The read is in the kernel on either target: unmodified
+        # v0.4.0 on a Tesla P100 gives NaN for the same three-block
+        # sensitivities (cpu_harness/reference/cuda-check), though whether
+        # that is this read or that card's unsupported stack was not
+        # established.
         @device
         def local_array(shape, dtype):
             return np.zeros(shape, dtype)
