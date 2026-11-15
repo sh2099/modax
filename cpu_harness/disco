@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Run DISCO-EB / DISCO-CMB on modax's CPU target, choosing the modax version.
+#
+#   disco [--modax 0.3|0.4] script.py [args]
+#   disco [--modax 0.3|0.4] -m module [args]      (e.g. -m pytest tests -q)
+#   disco [--modax 0.3|0.4] -c "code"
+#
+# The version defaults to $DISCO_MODAX, else 0.3 (what DISCO-EB 2.0.1 is
+# written for). Nothing is installed: the chosen modax checkout, its
+# cpu_harness and the two DISCO source trees go on PYTHONPATH, and the
+# stand-in for numba_cuda_mlir is installed before the script starts, so the
+# script itself needs no edit.
+#
+# Every location can be overridden from the environment:
+#   MODAX_03, MODAX_04   the modax checkouts (branches cpu-target-0.3 / -0.4)
+#   DISCO_EB, DISCO_CMB  the DISCO-EB and DISCO-CMB checkouts
+#   DISCO_PYTHON         the interpreter
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+code="$(cd "$here/../.." && pwd -P)"
+
+version="${DISCO_MODAX:-0.3}"
+if [[ "${1:-}" == "--modax" ]]; then
+    version="${2:?--modax takes 0.3 or 0.4}"
+    shift 2
+fi
+case "$version" in
+    0.3) modax="${MODAX_03:-$code/modax-0.3}" ;;
+    0.4) modax="${MODAX_04:-$code/modax}" ;;
+    *) echo "disco: --modax takes 0.3 or 0.4, got '$version'" >&2; exit 2 ;;
+esac
+eb="${DISCO_EB:-$code/DISCO-EB-lawrence}"
+cmb="${DISCO_CMB:-$code/DISCO-CMB}"
+python="${DISCO_PYTHON:-$code/modax/cpu_harness/.venv-discoeb-lock/bin/python}"
+
+for path in "$modax/modax" "$modax/cpu_harness" "$eb/src" "$python"; do
+    [[ -e "$path" ]] || { echo "disco: not found: $path" >&2; exit 2; }
+done
+
+export PYTHONPATH="$modax:$modax/cpu_harness:$eb/src:$cmb/src${PYTHONPATH:+:$PYTHONPATH}"
+export DISCO_MODAX="$version"
+exec "$python" "$modax/cpu_harness/disco_run.py" "$@"

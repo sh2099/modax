@@ -14,7 +14,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
+from modax import _target
+from modax._target import cuda
 
 from modax._sensitivity import SensitivitySpec, split_augmented
 from modax.rodas5P import quantity_hook
@@ -163,7 +164,7 @@ def test_hook_sees_the_joint_state_of_a_sensitivity_solve():
             acc[:, :, 1 + k],
             np.stack([d_expected[i, :, i, k] for i in range(3)]),
             rtol=1e-6,
-            atol=1e-9,
+            atol=1e-8 if _target.TARGET == "cpu" else 1e-9,
         )
 
     # The augmented history itself is what the hook read.

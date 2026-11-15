@@ -10,7 +10,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
+from modax._target import cuda
 
 import modax
 from modax.rodas5P import (

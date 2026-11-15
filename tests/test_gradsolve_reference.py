@@ -14,7 +14,8 @@ from modax.rodas5P import solve as rodas5P_solve
 from modax.tsit5 import solve as tsit5_solve
 from reference.systems.python import lorenz, robertson, vdp
 
-cuda = pytest.importorskip("numba_cuda_mlir.cuda")
+from modax._target import cuda  # noqa: E402
+
 pytest.importorskip("gradsolve")
 pytest.importorskip("warp")
 

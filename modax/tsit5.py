@@ -10,15 +10,13 @@ from typing import Literal, Sequence, overload
 
 import jax
 from jax.typing import ArrayLike
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
 
 from modax._jax_common import (
     differentiable_solve,
     ensemble_ffi_call,
     prepare_inputs,
 )
-from modax._jax_numba_custom_call import CudaLaunch, make_launch
+from modax._jax_numba_custom_call import CpuLaunch, CudaLaunch, make_launch
 from modax._methods import Backend
 from modax._numba_common import (
     SOLVER_ARGTYPES,
@@ -37,6 +35,8 @@ from modax._sensitivity import (
 from modax._sensitivity import (
     clear_caches as clear_sensitivity_caches,
 )
+from modax._target import TARGET, cuda, ensemble_driver, types
+from modax._target import DeviceFunction as MLIRDispatcher
 
 # fmt: off
 C2 = 161.0 / 1000.0
@@ -613,6 +613,22 @@ def _make_kernel(
     return shared_kernel
 
 
+def _with_hook_argument(kernel: MLIRDispatcher) -> MLIRDispatcher:
+    """``kernel`` taking the hook rows the CPU driver passes, which Tsit5 has no use for."""
+
+    @cuda.jit
+    def hooked(
+        y0, times, params, dt0, rtol, atol, max_steps, time_rows,
+        weights, hist, accepted_out, rejected_out, loop_out, hook_out,
+    ):  # fmt: skip
+        kernel(
+            y0, times, params, dt0, rtol, atol, max_steps, time_rows,
+            weights, hist, accepted_out, rejected_out, loop_out,
+        )  # fmt: skip
+
+    return hooked
+
+
 @functools.cache
 def _make_jax_launch(
     ode_fn: OdeFn,
@@ -621,9 +637,11 @@ def _make_jax_launch(
     gains: PIDGains,
     spec: SensitivitySpec | None,
     shared: bool,
-) -> CudaLaunch:
+) -> CudaLaunch | CpuLaunch:
     """Compile, load and size the kernel behind one JAX-side ensemble launch."""
     kernel = _make_kernel(ode_fn, n_vars, gains, spec, shared)
+    if TARGET == "cpu":
+        return CpuLaunch(ensemble_driver(_with_hook_argument(kernel)))
     threads = _SHARED_BLOCK if shared else _LOCAL_BLOCK
     blocks = (n + threads - 1) // threads
     return make_launch(kernel, SOLVER_ARGTYPES, grid=blocks, block=threads)
@@ -803,7 +821,8 @@ def _solve_impl(
     return_stats: bool,
 ) -> SolveOutput:
     inputs = prepare_inputs(y0, t_span, params, settings, options.spec)
-    shared = options.uses_shared(inputs.n, inputs.n_system)
+    # shared memory is a CUDA block's; a CPU thread's buffers are its own
+    shared = options.uses_shared(inputs.n, inputs.n_system) and TARGET == "cuda"
     launch = _make_jax_launch(
         ode_fn, inputs.n, inputs.n_vars, options.gains, options.spec, shared
     )

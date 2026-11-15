@@ -16,13 +16,13 @@ import sysconfig
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence, cast
+from typing import Callable, Sequence, cast
 
 import jax
 import numpy as np
 from jax.typing import ArrayLike
-from numba_cuda_mlir.descriptor import MLIRDispatcher
-from numba_cuda_mlir.numba_cuda.types import Type
+from modax._target import DeviceFunction as MLIRDispatcher
+from modax._target import Type
 
 _CAPSULE_NAME = b"xla._CUSTOM_CALL_TARGET"
 _TARGET_NAME = "modax_numba_cuda_abi_launch"
@@ -41,6 +41,13 @@ class CudaLaunch:
     grid: tuple[int, int, int]
     block: tuple[int, int, int]
     shared_mem: int = 0
+
+
+@dataclass(frozen=True)
+class CpuLaunch:
+    """A kernel's CPU form: the parallel loop over trajectories, called on host arrays."""
+
+    driver: Callable[..., None]
 
 
 def _as_3d(value: int | Sequence[int]) -> tuple[int, int, int]:
@@ -393,8 +400,51 @@ def make_launch(
     )
 
 
+def _cpu_call(
+    launch: CpuLaunch,
+    inputs: Sequence[ArrayLike],
+    output_specs: Sequence[jax.ShapeDtypeStruct],
+    input_kinds: Sequence[int],
+    scalar_f64_values: Sequence[float],
+    scalar_i32_values: Sequence[int],
+) -> tuple[jax.Array, ...]:
+    """Run a CPU launch behind ``jax.pure_callback``, arguments in the kernel's order.
+
+    The same contract as the CUDA custom call: the arrays arrive as given, the
+    scalars are interleaved by ``input_kinds``, and the outputs are allocated
+    here for the kernel to fill. They are zeroed, since a kernel need not write
+    an output it has no use for (the hook rows of an unhooked solve).
+    """
+    from modax._target import run_ensemble
+
+    f64, i32 = list(scalar_f64_values), list(scalar_i32_values)
+
+    def host(*arrays: np.ndarray) -> tuple[np.ndarray, ...]:
+        # Contiguous copies: XLA hands out read-only views, which numba types
+        # differently and would compile a second specialisation for.
+        pending = [np.array(a, order="C") for a in arrays]
+        scalars_f64, scalars_i32 = list(f64), list(i32)
+        args: list[object] = []
+        for kind in input_kinds:
+            if kind == ABI_ARRAY:
+                args.append(pending.pop(0))
+            elif kind == ABI_SCALAR_F64:
+                args.append(float(scalars_f64.pop(0)))
+            else:
+                args.append(np.int32(scalars_i32.pop(0)))
+        outputs = [np.zeros(spec.shape, spec.dtype) for spec in output_specs]
+        # The driver always passes hook rows; a launch that asks for none
+        # (Tsit5's) gets a row nothing writes.
+        unused = [] if len(outputs) == 5 else [np.zeros((outputs[0].shape[0], 1))]
+        run_ensemble(launch.driver, *args, *outputs, *unused)
+        return tuple(outputs)
+
+    result = jax.pure_callback(host, tuple(output_specs), *inputs)
+    return tuple(result)
+
+
 def ffi_abi_call(
-    launch: CudaLaunch,
+    launch: CudaLaunch | CpuLaunch,
     inputs: Sequence[ArrayLike],
     output_specs: Sequence[jax.ShapeDtypeStruct],
     *,
@@ -414,6 +464,15 @@ def ffi_abi_call(
         One array per entry of ``output_specs``.
     """
 
+    if isinstance(launch, CpuLaunch):
+        return _cpu_call(
+            launch,
+            inputs,
+            output_specs,
+            input_kinds,
+            scalar_f64_values,
+            scalar_i32_values,
+        )
     register_target()
     attrs = {
         "function": np.int64(launch.function),

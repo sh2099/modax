@@ -12,7 +12,7 @@ from modax import Hierarchy, Rodas5P, Tsit5
 from modax.rodas5P import solve, split_blocks
 
 jax.config.update("jax_enable_x64", True)
-cuda = pytest.importorskip("numba_cuda_mlir.cuda")
+from modax._target import cuda  # noqa: E402
 
 pytestmark = pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
 
@@ -133,7 +133,7 @@ def test_split_sensitivities_match_the_closed_form():
 
 
 def test_split_with_a_save_hook_sees_the_user_layout():
-    from numba_cuda_mlir import cuda as nbcuda
+    from modax._target import cuda as nbcuda
 
     @nbcuda.jit(device=True)
     def hook(save_idx, y, t, p_row, acc):

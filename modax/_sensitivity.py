@@ -52,13 +52,15 @@ import numpy as np
 import numpy.typing as npt
 from jax.custom_derivatives import SymbolicZero
 from jax.typing import ArrayLike
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
-from numba_cuda_mlir.numba_cuda.typing.templates import Signature
-from numba_enzyme import jvp
 
+from modax._differences import difference_second_tangent, difference_tangent
 from modax._jax_numba_custom_call import compile_target
 from modax._numba_common import OdeFn, SolveOutput, Solver, as_cuda_device
+from modax._target import TARGET, Signature, cuda, types
+from modax._target import DeviceFunction as MLIRDispatcher
+
+if TARGET == "cuda":
+    from numba_enzyme import jvp
 
 Tangent = Callable[..., None]
 """An Enzyme forward sweep: ``(out, *args, *directions)``, writing ``out``."""
@@ -186,6 +188,8 @@ def make_second_tangent(ode_fn: OdeFn, n_vars: int, n_params: int) -> Tangent:
 @functools.cache
 def make_quantity_tangent(fn, n_outputs: int, n_vars: int, n_params: int) -> Tangent:
     """``D q(y, t, p)[u]`` for a quantity function of ``n_outputs`` values of ``n_vars`` states."""
+    if TARGET == "cpu":
+        return difference_tangent(fn, n_outputs, n_vars, n_params)
     # For the kernel's own target (compile_target), so the two link on Blackwell.
     return jvp(
         as_cuda_device(fn),
@@ -199,6 +203,8 @@ def make_quantity_second_tangent(
     fn, n_outputs: int, n_vars: int, n_params: int
 ) -> Tangent:
     """``D2 q[u, v] + D q[w]`` for a quantity function, forward over forward as :func:`make_second_tangent`."""
+    if TARGET == "cpu":
+        return difference_second_tangent(fn, n_outputs, n_vars, n_params)
     signature = _quantity_signature(n_outputs, n_vars, n_params)
     cc = compile_target()
     return jvp(

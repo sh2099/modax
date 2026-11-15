@@ -1,0 +1,12 @@
+hier3_jvp_p0/tangent nan count 12 inf 0 of 42 | nan per state column [ 0 12  0] | nan per save [0 2 2 2 2 2 2]
+hier3_jvp_p1/tangent nan count 12 inf 0 of 42 | nan per state column [ 0 12  0] | nan per save [0 2 2 2 2 2 2]
+hier3_jvp_p2/tangent nan count 12 inf 0 of 42 | nan per state column [ 0 12  0] | nan per save [0 2 2 2 2 2 2]
+hier3_jvp_y0/1 nan count 12 inf 0 of 42 | nan per state column [ 0 12  0] | nan per save [0 2 2 2 2 2 2]
+[[ 0.  0.  0.]
+ [ 0. nan  0.]
+ [ 0. nan  0.]
+ [ 0. nan  0.]
+ [ 0. nan  0.]
+ [ 0. nan  0.]
+ [ 0. nan  0.]]
+primal finite: True {'hier3_jvp_p0/stats/accepted_steps': [0, 0], 'hier3_jvp_p0/stats/loop_steps': [100000, 100000], 'hier3_jvp_p0/stats/rejected_steps': [0, 0]}

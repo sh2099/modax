@@ -1,0 +1,47 @@
+Package                  Version    Editable project location
+------------------------ ---------- -----------------------------
+backports-strenum        1.3.1
+classy                   3.3.4.0
+cuda-bindings            12.9.9
+cuda-core                1.1.0
+cuda-pathfinder          1.5.6
+cuda-toolkit             12.9.2.0
+cvxopt                   1.3.3
+disco-eb                 2.0.1      /tmp/sh2099-disco-eb/DISCO-EB
+exceptiongroup           1.3.1
+iniconfig                2.3.1
+jax                      0.6.2
+jax-cuda12-pjrt          0.6.2
+jax-cuda12-plugin        0.6.2
+jaxlib                   0.6.2
+llvmlite                 0.44.0
+ml-dtypes                0.5.4
+modax-solvers            0.3.0
+networkx                 3.4.2
+numba                    0.61.2
+numba-cuda-mlir          0.5.4
+numba-enzyme-cuda        0.3.0
+numpy                    2.2.6
+nvidia-cublas-cu12       12.9.2.10
+nvidia-cuda-cccl-cu12    12.9.27
+nvidia-cuda-cupti-cu12   12.9.79
+nvidia-cuda-nvcc-cu12    12.9.86
+nvidia-cuda-nvrtc-cu12   12.9.86
+nvidia-cuda-runtime-cu12 12.9.79
+nvidia-cudnn-cu12        9.27.0.42
+nvidia-cufft-cu12        11.4.1.4
+nvidia-cusolver-cu12     11.7.5.82
+nvidia-cusparse-cu12     12.5.10.65
+nvidia-nccl-cu12         2.32.3
+nvidia-nvjitlink-cu12    12.9.86
+nvidia-nvshmem-cu12      3.8.0
+opt-einsum               3.4.0
+packaging                26.3
+pluggy                   1.7.0
+py-cpuinfo2              10.1.1
+pygments                 2.21.0
+pytest                   9.2.0
+pytest-benchmark         5.3.1
+scipy                    1.15.3
+tomli                    2.5.0
+typing-extensions        4.16.0
