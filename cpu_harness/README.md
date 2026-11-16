@@ -128,10 +128,20 @@ the `numba-enzyme-cuda` wheel's own tools).
   Jacobian's weighted gradient to 1.1e-5; with the default single-precision
   RECFAST to 9e-5 and 3.5e-2 (the GPU's own central differences disagree
   with it by 1e-3 there).
-- Times on the Mac, Enzyme: `value_and_grad` of summed P(k) 48 s cold, 0.24 s
-  warm; `jacfwd` of `solve_eb` 37 s cold, 0.027 s warm (P100: 1.8 s and
-  1.3 s warm). Building the derivatives is a few seconds of the cold time,
-  most of it numba lowering them; the rest is compiling the kernels.
+- Times on the Mac (`deriv_record.py` of the Enzyme investigation, first
+  call in a new process and then warm):
+
+  | | Enzyme | finite differences | P100 (warm) |
+  |---|---|---|---|
+  | `value_and_grad` of summed P(k) | 48 s, 0.24 s | 68 s, 29.3 s | 1.8 s |
+  | `jacfwd` of `solve_eb` | 37 s, 0.027 s | 27 s, 1.70 s | 1.3 s |
+
+  The warm gap is the step controller: in the earlier calx059 measurements
+  the differenced joint solves rejected 3861 steps per trajectory where
+  Enzyme's rejected 3.9. Building the
+  twelve Enzyme derivatives is 6.8 s of the cold times (3.9 s numba
+  lowering, 1.7 s Enzyme); the rest is compiling kernels, which with the
+  derivative inlined take longer than with the differences.
 
 ## The CUDA path, checked on a GPU
 

@@ -52,10 +52,11 @@ and LLVM 15's ``opt``, ``llvm-link`` and ``llvm-extract`` with the Enzyme
 plugin (:func:`find_tools`). :func:`unavailable` says what is missing.
 
 Not done: an on-disk cache of Enzyme's output. Lowering, which a cache keyed
-on the lowered IR could not skip, is most of a build (about 5.6 s of 6.1 s
-for DISCO-EB's derivatives, against 0.4 s of Enzyme); and several directions
-per call (the CUDA Jacobian's ``SEED_BATCH``), which needs a vector-mode
-driver of its own.
+on the lowered IR could not skip, is most of a build: DISCO-EB's twelve
+derivatives took 6.8 s on an M4 Pro, 3.9 s of it lowering and 1.7 s Enzyme
+(:data:`BUILDS` records each step). Nor several directions per call (the
+CUDA Jacobian's ``SEED_BATCH``), which needs a vector-mode driver of its
+own.
 """
 
 from __future__ import annotations
