@@ -113,17 +113,37 @@ uv run pre-commit install   # the checks above, and a commit-message check
 ```
 
 Without the CUDA packages the kernels compile for the CPU with plain numba
-(`modax/_target.py`), with finite differences where CUDA uses Enzyme. macOS
-gets that from `uv sync`, since neither package has a macOS build. On Linux
-they are dependencies, and `numba-enzyme-cuda` needs glibc 2.38; to leave them
-out (a machine without a usable GPU, or an older glibc):
+(`modax/_target.py`). macOS gets that from `uv sync`, since neither package
+has a macOS build. On Linux they are dependencies, and `numba-enzyme-cuda`
+needs glibc 2.38; to leave numba-CUDA out (a machine without a usable GPU,
+or an older glibc):
 
 ```bash
-uv sync --no-install-package numba-enzyme-cuda --no-install-package numba-cuda-mlir
+uv sync --no-install-package numba-cuda-mlir
 ```
 
 Where the whole CUDA stack is installed, `MODAX_TARGET=cpu` selects the CPU
 target.
+
+The CPU target differentiates with Enzyme where it can, as CUDA does
+(`modax/_enzyme_cpu.py`), and with finite differences otherwise.
+`MODAX_CPU_DERIVATIVES` chooses: `auto` (the default; Enzyme if available,
+else differences with one warning), `enzyme` (fail without it) or
+`differences`. Enzyme on the CPU needs:
+
+- numba 0.61 and llvmlite 0.44, which numba-enzyme's lowering is written
+  for (`uv.lock` has them; an environment with a newer numba gets finite
+  differences);
+- `numba-enzyme-cuda`;
+- LLVM 15's `opt`, `llvm-link` and `llvm-extract` with the Enzyme plugin.
+  On Linux the `numba-enzyme-cuda` wheel brings them. On macOS
+  `cpu_harness/build_enzyme_toolchain.sh` builds them and an environment
+  with the pins, and `MODAX_ENZYME_TOOLS` points modax at them (see
+  `cpu_harness/README.md`).
+
+Finite differences are good to about 1e-8 of a quantity's scale; Enzyme's
+derivatives are exact to rounding, and on stiff problems with sensitivities
+a solve is several times faster with them.
 
 The documentation (Sphinx with MyST and autodoc) builds in an environment of
 its own, the package's CPU install plus the docs group:

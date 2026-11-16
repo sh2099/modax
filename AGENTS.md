@@ -667,7 +667,7 @@ touching the code.
   published quantities (and its sensitivities) against the joint solve;
   `tests/test_split.py` the pattern split.
 
-### The CPU target (`modax/_target.py`, `modax/_differences.py`)
+### The CPU target (`modax/_target.py`, `modax/_enzyme_cpu.py`, `modax/_differences.py`)
 
 Without `numba_cuda_mlir` and `numba_enzyme` (macOS has neither), or with
 `MODAX_TARGET=cpu`, the kernels compile with plain numba. `_target.py` decides
@@ -680,24 +680,57 @@ module imports from it; on CUDA they are numba-cuda-mlir's own.
   are zero and a warp is one lane: `cuda.ballot_sync` is the lane's own
   predicate and `cuda.any_sync` returns it. Keep it that way: a change to a
   kernel that needs a CPU branch cannot be checked where it matters.
+  `test_the_source_generated_for_cuda_is_upstreams` (in
+  `tests/test_cpu_target.py`, no GPU needed) pins the text generated for
+  CUDA to upstream v0.3.0's.
 - **Threads claim trajectories** from an atomic counter, since trajectories
   differ widely in cost and numba's default layer splits a loop statically.
-- **Derivatives are finite differences.** The Jacobian has a writer of its
-  own (`make_difference_jacobian` in `_rodas5P.py`): forward differences by
-  colour, each column stepped by its own size, a group redone backwards when
-  the probe is non-finite. Enzyme's sweeps are central differences behind
-  the same calling convention (`_differences.py`).
-- **The launch appends two columns to the parameter row** (`atol / rtol` and
-  the first step), which the difference steps read as the scale of a state
-  or a time near zero. The hierarchy kernel copies them to the end of its
-  local row, the one place its generated text depends on the target.
+- **Two derivative engines**, chosen once at import by
+  `MODAX_CPU_DERIVATIVES=auto|enzyme|differences` (`_target.CPU_DERIVATIVES`).
+  `auto` takes Enzyme where `_enzyme_cpu.unavailable()` finds nothing
+  missing and otherwise warns once and takes differences; `enzyme` raises
+  without it.
+  - **Enzyme** (`_enzyme_cpu.py`): the kernels take the CUDA branch's
+    Jacobian writer (`_make_literal_seed_jacobian`, `batch=1`) and forward
+    sweeps, so the derivatives are CUDA's to rounding. A sweep is built when
+    numba types its first call: numba-enzyme's `lowering.lower`, a
+    forward-only driver from its private `driver` API (all of that use is
+    in one section of `_enzyme_cpu.py`), `llvm-extract`, `llvm-link`, `opt
+    -passes=enzyme`, then the IR is renamed apart and linked into the
+    calling kernel through a numba code library. Second order is Enzyme
+    over the first-order entry. Builds are keyed on the Python function
+    object (numba-enzyme's own CPU cache is keyed on source text, which
+    closures share) and run under numba's compiler lock. `cuda.local.array`
+    is a zeroed `alloca`, since Enzyme cannot see through NRT allocation;
+    a size numba cannot see as a constant falls back to `np.zeros`, and a
+    derivative reaching one (or any `np.zeros`) refuses to build with
+    `EnzymeBuildError`. Needs numba 0.61 / llvmlite 0.44 (numba-enzyme reads
+    typed-pointer IR), `numba-enzyme-cuda`, and LLVM 15 tools with the
+    Enzyme plugin: the wheel's own on Linux, `MODAX_ENZYME_TOOLS` on macOS
+    (`cpu_harness/build_enzyme_toolchain.sh`). `MODAX_ENZYME_KEEP=dir`
+    keeps every build's IR files. Not done: an on-disk cache (lowering, which
+    it could not skip, is most of a build) and several directions a sweep.
+  - **Finite differences**: the Jacobian has a writer of its own
+    (`make_difference_jacobian` in `rodas5P.py`): forward differences by
+    colour, each column stepped by its own size, a group redone backwards
+    when the probe is non-finite. Enzyme's sweeps are central differences
+    behind the same calling convention (`_differences.py`). Accuracy is
+    about 1e-8 of the quantities' scale, not rounding; local arrays are
+    `np.zeros`.
+- **The launch appends three columns to the parameter row** (`atol / rtol`,
+  the first step and `rtol`), which the difference steps read as the scale
+  of a state or a time near zero. Enzyme reads none of them; they are
+  appended under either engine so the kernels are the same. The hierarchy
+  kernel copies them to the end of its local row, the one place its
+  generated text depends on the target.
 - **The six Hermite coefficients of a quantity are sized together**
   (`set_parameter_groups`): a quantity's value passes through zero while its
-  other coefficients do not.
+  other coefficients do not. Only the differences read it.
 - `MODAX_SERIAL=1 NUMBA_BOUNDSCHECK=1` is the debug mode. An exception or an
   out-of-bounds index inside the parallel loop is silent.
-- Accuracy is about 1e-8 of the quantities' scale, not rounding.
-  `tests/test_cpu_target.py` checks each piece against JAX autodiff.
+- `tests/test_cpu_target.py` checks the differences against JAX autodiff and
+  the engine choice; `tests/test_enzyme_cpu.py` checks the Enzyme sweeps to
+  rounding and skips without Enzyme. Run the suite under both engines.
 
 ### Kernel cache (`modax/_kernel_cache.py`)
 
