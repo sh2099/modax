@@ -128,6 +128,9 @@ the `numba-enzyme-cuda` wheel's own tools).
   Jacobian's weighted gradient to 1.1e-5; with the default single-precision
   RECFAST to 9e-5 and 3.5e-2 (the GPU's own central differences disagree
   with it by 1e-3 there).
+- On calx059 the P(k) gradient and `solve_eb` Jacobian records of this
+  path are bitwise those of the run-time patch it replaced, for both RECFAST
+  precisions.
 - Times on the Mac (`deriv_record.py` of the Enzyme investigation, first
   call in a new process and then warm):
 
