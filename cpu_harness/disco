@@ -15,6 +15,13 @@
 #   MODAX_03, MODAX_04   the modax checkouts (branches cpu-target-0.3 / -0.4)
 #   DISCO_EB, DISCO_CMB  the DISCO-EB and DISCO-CMB checkouts
 #   DISCO_PYTHON         the interpreter
+#   ENZYME_TOOLCHAIN     what build_enzyme_toolchain.sh built (../../enzyme-toolchain)
+#
+# With --modax 0.3 the interpreter defaults to the toolchain's environment
+# (numba 0.61 and numba-enzyme), where it exists, and MODAX_ENZYME_TOOLS to
+# the toolchain, so derivatives are Enzyme's; otherwise, and for 0.4, the
+# numba 0.68 environment, where they are finite differences.
+# MODAX_CPU_DERIVATIVES=differences chooses those in either.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -32,7 +39,13 @@ case "$version" in
 esac
 eb="${DISCO_EB:-$code/DISCO-EB-lawrence}"
 cmb="${DISCO_CMB:-$code/DISCO-CMB}"
-python="${DISCO_PYTHON:-$code/modax/cpu_harness/.venv-discoeb-lock/bin/python}"
+toolchain="${ENZYME_TOOLCHAIN:-$code/enzyme-toolchain}"
+python="$code/modax/cpu_harness/.venv-discoeb-lock/bin/python"
+if [[ "$version" == 0.3 && -x "$toolchain/venv/bin/python" ]]; then
+    python="$toolchain/venv/bin/python"
+    export MODAX_ENZYME_TOOLS="${MODAX_ENZYME_TOOLS:-$toolchain}"
+fi
+python="${DISCO_PYTHON:-$python}"
 
 for path in "$modax/modax" "$modax/cpu_harness" "$eb/src" "$python"; do
     [[ -e "$path" ]] || { echo "disco: not found: $path" >&2; exit 2; }

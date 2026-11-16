@@ -1,8 +1,8 @@
 """What the ``disco`` launcher runs: the stand-in first, then the script.
 
-Says on stderr which modax, DISCO-EB and DISCO-CMB a run used, so that a log
-records it, then behaves as ``python`` does for a script, ``-m module`` or
-``-c code``.
+Says on stderr which modax (its target, derivative engine and numba),
+DISCO-EB and DISCO-CMB a run used, so that a log records it, then behaves as
+``python`` does for a script, ``-m module`` or ``-c code``.
 """
 
 from __future__ import annotations
@@ -49,7 +49,16 @@ def _describe() -> str:
             modax_version = tomllib.load(handle)["project"]["version"]
     except (OSError, KeyError):
         modax_version = "?"
-    parts.append(f"modax {modax_version} ({_commit(modax_root)}, {_target.TARGET})")
+    import numba
+
+    # modax 0.4 has no Enzyme on the CPU
+    derivatives = getattr(_target, "CPU_DERIVATIVES", "differences")
+    if _target.TARGET == "cuda":
+        derivatives = "enzyme"
+    parts.append(
+        f"modax {modax_version} ({_commit(modax_root)}, {_target.TARGET}, "
+        f"{derivatives} derivatives, numba {numba.__version__})"
+    )
     for name in ("discoeb", "discocmb"):
         try:
             module = importlib.util.find_spec(name)
