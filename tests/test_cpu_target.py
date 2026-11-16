@@ -1,12 +1,18 @@
 """The CPU target: the same kernels under plain numba, with differenced derivatives.
 
-Everything else in the suite runs on whichever target the machine has. What is
-checked here is what only the CPU target does: its Jacobian writer and its
-stand-ins for Enzyme's sweeps against JAX autodiff, the launch loop, and the
-choice of target.
+Everything else in the suite runs on whichever target the machine has, and on
+the CPU with whichever derivatives MODAX_CPU_DERIVATIVES chose. What is
+checked here is what only the CPU target does: its finite-difference Jacobian
+writer and its stand-ins for Enzyme's sweeps against JAX autodiff (whichever
+engine the solves use), the launch loop, and the choice of target and of
+derivatives. tests/test_enzyme_cpu.py checks the Enzyme engine.
 """
 
 import math
+import os
+import subprocess
+import sys
+import warnings
 
 import jax
 import jax.numpy as jnp
@@ -434,3 +440,188 @@ def test_a_cpu_stand_in_is_not_numba_cuda(monkeypatch):
     stand_in.__cpu_shim__ = True
     monkeypatch.setitem(sys.modules, "numba_cuda_mlir", stand_in)
     assert "numba_cuda_mlir" in _target._missing_cuda_packages()
+
+
+# --- which derivatives the CPU target takes ----------------------------------------------
+
+
+def _unavailable(monkeypatch, reason):
+    from modax import _enzyme_cpu
+
+    monkeypatch.setattr(_enzyme_cpu, "unavailable", lambda: reason)
+
+
+def test_without_enzyme_the_cpu_target_differences_and_says_why(monkeypatch):
+    _unavailable(monkeypatch, "no tools here")
+    monkeypatch.delenv("MODAX_CPU_DERIVATIVES", raising=False)
+    with pytest.warns(RuntimeWarning, match="no tools here") as caught:
+        assert _target._choose_derivatives("cpu") == "differences"
+    assert len(caught) == 1
+    monkeypatch.setenv("MODAX_CPU_DERIVATIVES", "enzyme")
+    with pytest.raises(ImportError, match="no tools here"):
+        _target._choose_derivatives("cpu")
+    monkeypatch.setenv("MODAX_CPU_DERIVATIVES", "differences")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert _target._choose_derivatives("cpu") == "differences"
+
+
+def test_with_enzyme_the_cpu_target_takes_it(monkeypatch):
+    _unavailable(monkeypatch, None)
+    monkeypatch.delenv("MODAX_CPU_DERIVATIVES", raising=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert _target._choose_derivatives("cpu") == "enzyme"
+        monkeypatch.setenv("MODAX_CPU_DERIVATIVES", "enzyme")
+        assert _target._choose_derivatives("cpu") == "enzyme"
+    monkeypatch.setenv("MODAX_CPU_DERIVATIVES", "exact")
+    with pytest.raises(ValueError, match="MODAX_CPU_DERIVATIVES"):
+        _target._choose_derivatives("cpu")
+
+
+def test_cuda_derivatives_are_always_enzyme(monkeypatch):
+    _unavailable(monkeypatch, "not asked")
+    monkeypatch.setenv("MODAX_CPU_DERIVATIVES", "differences")
+    assert _target._choose_derivatives("cuda") == "enzyme"
+
+
+def test_a_configured_tool_directory_must_hold_the_tools(monkeypatch, tmp_path):
+    from modax import _enzyme_cpu
+
+    monkeypatch.setenv("MODAX_ENZYME_TOOLS", str(tmp_path))
+    with pytest.raises(_enzyme_cpu.EnzymeUnavailable, match="lacks opt.*Enzyme plugin"):
+        _enzyme_cpu.find_tools()
+
+
+def test_a_missing_toolchain_falls_back_with_one_warning(tmp_path):
+    """The whole import, in a process of its own: one warning, and differences."""
+    code = (
+        "import warnings\n"
+        "with warnings.catch_warnings(record=True) as caught:\n"
+        "    warnings.simplefilter('always')\n"
+        "    import modax\n"
+        "from modax import _target\n"
+        "said = [w for w in caught if 'Enzyme cannot run' in str(w.message)]\n"
+        "print(_target.TARGET, _target.CPU_DERIVATIVES, len(said))\n"
+    )
+    env = dict(
+        os.environ,
+        MODAX_TARGET="cpu",
+        MODAX_CPU_DERIVATIVES="auto",
+        MODAX_ENZYME_TOOLS=str(tmp_path),
+        JAX_PLATFORMS="cpu",
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=600
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.split() == ["cpu", "differences", "1"]
+
+
+# --- the source generated for CUDA -------------------------------------------------------
+
+# sha256[:16] of every Jacobian writer and hierarchy kernel these builds
+# generate for the CUDA target, from upstream v0.3.0 (imported with
+# numba-cuda stand-ins, its Enzyme sweeps stubbed: nothing here reads them).
+# The CPU target's branches must leave that text alone.
+V030_CUDA_SOURCE = {
+    "hier3_plain": ["05c96f922f29396b", "b632d2b59cbb371e", "0a0a04b5c624509c", "4da668a74a796d15"],
+    "hier2_plain": ["b69731bbdd0805c9", "9472756311cbbfdd", "5c4cae320718a1e8"],
+    "hier3_fp32_default": ["05c96f922f29396b", "b632d2b59cbb371e", "0a0a04b5c624509c", "c6b12fa25f1913ea"],
+    "hier3_auto": ["05c96f922f29396b", "b632d2b59cbb371e", "0a0a04b5c624509c", "6f8b4e4eb74b4885"],
+    "hier3_sens_params": ["05c96f922f29396b", "b632d2b59cbb371e", "0a0a04b5c624509c", "273d51469ea88e6f"],
+    "hier3_hook": ["05c96f922f29396b", "b632d2b59cbb371e", "0a0a04b5c624509c", "5ea8eb0a6e2d2729"],
+    "rodas_dense": ["bcad10e56d455c5c"],
+    "rodas_dense_sens": ["bcad10e56d455c5c"],
+    "rodas_sparse": ["a767317abd83d7ef"],
+}
+
+
+def rhs_a(y, t, p):
+    return (-p[0] * y[0] + math.cos(t),)
+
+
+def out_a(y, t, p):
+    return (math.sin(y[0]), y[0] * t)
+
+
+def rhs_b(y, t, p, q):
+    return (-p[1] * (y[0] - q[0]) + q[1],)
+
+
+def rhs_c(y, t, p, q):
+    return (-p[2] * (y[0] - q[0]) + q[1],)
+
+
+def sum_hook(save_idx, y, t, p_row, acc):
+    acc[save_idx] = y[0] + y[2]
+
+
+def bidiagonal(y, t, p):
+    return tuple(
+        (-p[0] * y[0] if j == 0 else p[0] * y[j - 1] - (p[1] + 0.1 * j) * y[j])
+        for j in range(6)
+    )
+
+
+def test_the_source_generated_for_cuda_is_upstreams(monkeypatch):
+    """Built with this branch's modules told the target is CUDA; nothing is compiled."""
+    import hashlib
+
+    from modax import Auto
+    from modax import _hierarchy as H
+    from modax import rodas5P as R
+    from modax._hierarchy import Block, Hierarchy
+    from modax._sensitivity import SensitivitySpec
+
+    monkeypatch.setattr(H, "TARGET", "cuda")
+    monkeypatch.setattr(R, "TARGET", "cuda")
+    sources: dict[str, list[str]] = {}
+    current = [""]
+    generate = R._make_literal_seed_jacobian
+
+    def recording(**kw):
+        writer = generate(**kw)
+        sources.setdefault(current[0], []).append(writer.py_func._generated_source)
+        return writer
+
+    class Generated(Exception):
+        pass
+
+    def kernel_source(source, namespace, jit_options):
+        sources.setdefault(current[0], []).append(source)
+        raise Generated
+
+    monkeypatch.setattr(R, "_make_literal_seed_jacobian", recording)
+    monkeypatch.setattr(H, "_compile_kernel", kernel_source)
+
+    a = Block(rhs_a, 1, outputs=out_a, n_outputs=2, name="a")
+    b = Block(rhs_b, 1, reads=(a,), name="b")
+    chain3 = Hierarchy(Block(rhs_c, 1, reads=(b, a), name="c"))
+    fp64 = dict(lu_precision="fp64")
+    for name, hierarchy, options in [
+        ("hier3_plain", chain3, R.KernelOptions(**fp64)),
+        ("hier2_plain", Hierarchy(b), R.KernelOptions(**fp64)),
+        ("hier3_fp32_default", chain3, R.KernelOptions()),
+        ("hier3_auto", chain3, R.KernelOptions(default_method=Auto())),
+        ("hier3_sens_params", chain3,
+         R.KernelOptions(spec=SensitivitySpec(3, 3, False, True), **fp64)),
+        ("hier3_hook", chain3, R.KernelOptions(save_hook=sum_hook, hook_size=7, **fp64)),
+    ]:  # fmt: skip
+        current[0] = name
+        with pytest.raises(Generated):
+            H.make_hierarchy_kernel.__wrapped__(hierarchy, 3, options)
+    pattern = normalize_sparsity(np.tril(np.triu(np.ones((6, 6), dtype=bool), -1)), 6)
+    for name, fn, n, options in [
+        ("rodas_dense", robertson, 3, R.KernelOptions(**fp64)),
+        ("rodas_dense_sens", robertson, 3,
+         R.KernelOptions(spec=SensitivitySpec(3, 3, True, True), **fp64)),
+        ("rodas_sparse", bidiagonal, 6, R.KernelOptions(sparsity=pattern)),
+    ]:  # fmt: skip
+        current[0] = name
+        R._make_kernel.__wrapped__(fn, n, 3, options)
+    digests = {
+        name: [hashlib.sha256(s.encode()).hexdigest()[:16] for s in texts]
+        for name, texts in sources.items()
+    }
+    assert digests == V030_CUDA_SOURCE

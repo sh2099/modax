@@ -74,7 +74,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import numpy as np
-from modax._target import N_DRIVER_COLUMNS, TARGET, cuda, types
+from modax._target import CPU_DERIVATIVES, N_DRIVER_COLUMNS, TARGET, cuda, types
 from modax._target import DeviceFunction as MLIRDispatcher
 
 from modax import tsit5 as T
@@ -1320,7 +1320,7 @@ def _block_functions(
         def clear(lu):
             pass
 
-    if TARGET == "cpu":
+    if TARGET == "cpu" and CPU_DERIVATIVES == "differences":
         jac = R.make_difference_jacobian(
             ode_write=make_cuda_local_vector_writer(rhs, n),
             structure=structure,
@@ -1348,7 +1348,8 @@ def _block_functions(
                 lu_dtype=lu_dtype,
             ),
             inline="never",
-            batch=structure.n_colours + 1 + n_reads,
+            # one direction a sweep where Enzyme's CPU entry takes one
+            batch=structure.n_colours + 1 + n_reads if TARGET == "cuda" else 1,
             coupling=n_reads,
         )
 
