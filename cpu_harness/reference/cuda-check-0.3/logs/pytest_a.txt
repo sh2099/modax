@@ -1,0 +1,458 @@
+[mrun] 2026-11-16T17:26:03+00:00 host cap006a.ast.cam.ac.uk side a GPU 1 modax 0d8b9a1bccbe9235919881f7ccdaabf2662f3fe3
+[mrun] pytest tests -v -rA --benchmark-disable -p no:cacheprovider
+============================= test session starts ==============================
+platform linux -- Python 3.10.22, pytest-9.2.0, pluggy-1.7.0 -- /tmp/sh2099-disco-eb/modax-check/venv-a/bin/python
+benchmark: 5.3.1 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /tmp/sh2099-disco-eb/modax-check-03/src-a
+configfile: pyproject.toml
+plugins: benchmark-5.3.1, anyio-4.14.2, jaxtyping-0.3.7
+collecting ... collected 193 items / 1 skipped
+
+tests/test_benchmark_common.py::test_timeout_cache_helpers PASSED        [  0%]
+tests/test_blackwell.py::test_older_gpus_are_their_own_target[capability0] PASSED [  1%]
+tests/test_blackwell.py::test_older_gpus_are_their_own_target[capability1] PASSED [  1%]
+tests/test_blackwell.py::test_older_gpus_are_their_own_target[capability2] PASSED [  2%]
+tests/test_blackwell.py::test_blackwell_compiles_for_hopper[capability0] PASSED [  2%]
+tests/test_blackwell.py::test_blackwell_compiles_for_hopper[capability1] PASSED [  3%]
+tests/test_blackwell.py::test_blackwell_compiles_for_hopper[capability2] PASSED [  3%]
+tests/test_blackwell.py::test_the_target_is_resolved_once PASSED         [  4%]
+tests/test_blackwell.py::test_an_explicit_target_overrides_the_device PASSED [  4%]
+tests/test_blackwell.py::test_an_explicit_target_is_validated_as_numba_enzyme_does FAILED [  5%]
+tests/test_blackwell.py::test_derivatives_are_built_for_the_kernel_target PASSED [  5%]
+tests/test_blackwell.py::test_rodas5p_links_for_blackwell[False] PASSED  [  6%]
+tests/test_blackwell.py::test_rodas5p_links_for_blackwell[True] PASSED   [  6%]
+tests/test_blackwell.py::test_tsit5_sensitivities_link_for_blackwell PASSED [  7%]
+tests/test_blackwell.py::test_solves_and_differentiates_on_blackwell[rodas5P] SKIPPED [  7%]
+tests/test_blackwell.py::test_solves_and_differentiates_on_blackwell[tsit5] SKIPPED [  8%]
+tests/test_block_methods.py::test_mixed_methods_match_the_joint_solve[tsit-root] PASSED [  8%]
+tests/test_block_methods.py::test_mixed_methods_match_the_joint_solve[tsit-sink] PASSED [  9%]
+tests/test_block_methods.py::test_mixed_methods_match_the_joint_solve[all-tsit] PASSED [  9%]
+tests/test_block_methods.py::test_mixed_methods_match_the_joint_solve[all-auto] PASSED [ 10%]
+tests/test_block_methods.py::test_mixed_methods_match_the_joint_solve[mixed] PASSED [ 10%]
+tests/test_block_methods.py::test_modax_solve_takes_the_default_method PASSED [ 11%]
+tests/test_block_methods.py::test_the_plain_solvers_refuse_blocks PASSED [ 11%]
+tests/test_block_methods.py::test_auto_switches_to_rodas_where_the_problem_turns_stiff PASSED [ 12%]
+tests/test_block_methods.py::test_an_upstream_auto_block_switches_where_its_problem_turns_stiff PASSED [ 12%]
+tests/test_block_methods.py::test_explicit_blocks_refuse_sensitivities PASSED [ 13%]
+tests/test_block_methods.py::test_an_upstream_block_factorises_in_double PASSED [ 13%]
+tests/test_block_methods.py::test_the_solves_precision_skips_upstream_blocks PASSED [ 14%]
+tests/test_block_methods.py::test_a_method_is_checked PASSED             [ 15%]
+tests/test_block_methods.py::test_the_method_carries_its_own_options PASSED [ 15%]
+tests/test_block_methods.py::test_a_plain_tsit5_solve_ignores_sparsity PASSED [ 16%]
+tests/test_block_methods.py::test_a_plain_tsit5_solve_takes_a_save_hook_on_the_hierarchy_kernel PASSED [ 16%]
+tests/test_block_methods.py::test_method_options_are_checked PASSED      [ 17%]
+tests/test_block_methods.py::test_a_repeated_plain_auto_solve_reuses_its_block PASSED [ 17%]
+tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[bateman] PASSED [ 18%]
+tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[brusselator] PASSED [ 18%]
+tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[heat] PASSED [ 19%]
+tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[kaps] PASSED [ 19%]
+tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[lorenz] PASSED [ 20%]
+tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[robertson] PASSED [ 20%]
+tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[vdp] PASSED [ 21%]
+tests/test_enzyme_jacobian.py::test_enzyme_jacobian_recovers_a_time_derivative PASSED [ 21%]
+tests/test_enzyme_jacobian.py::test_enzyme_jacobian_of_a_looped_right_hand_side PASSED [ 22%]
+tests/test_examples.py::test_device_callbacks_compile[bbn_estimation] PASSED [ 22%]
+tests/test_examples.py::test_device_callbacks_compile[21cm_igm_evolution] PASSED [ 23%]
+tests/test_examples.py::test_device_rhs_matches_jnp[bbn_estimation] PASSED [ 23%]
+tests/test_examples.py::test_device_rhs_matches_jnp[21cm_igm_evolution] PASSED [ 24%]
+tests/test_examples.py::test_traced_rhs_pickles[bbn_estimation] PASSED   [ 24%]
+tests/test_examples.py::test_traced_rhs_pickles[21cm_igm_evolution] PASSED [ 25%]
+tests/test_examples.py::test_enzyme_derivatives_match_autodiff[bbn_estimation] PASSED [ 25%]
+tests/test_examples.py::test_enzyme_derivatives_match_autodiff[21cm_igm_evolution] PASSED [ 26%]
+tests/test_examples.py::test_mukhanov_background_device_rhs_matches_jnp PASSED [ 26%]
+tests/test_examples.py::test_mukhanov_mode_rhs_fits_in_constant_memory PASSED [ 27%]
+tests/test_examples.py::test_mukhanov_mode_device_rhs_matches_jnp PASSED [ 27%]
+tests/test_examples.py::test_mukhanov_mode_rhs_pickles PASSED            [ 28%]
+tests/test_examples.py::test_mukhanov_mode_device_rhs_clamps_outside_the_table PASSED [ 29%]
+tests/test_hierarchy.py::test_the_hierarchy_orders_the_blocks_upstream_first PASSED [ 29%]
+tests/test_hierarchy.py::test_a_cycle_is_refused PASSED                  [ 30%]
+tests/test_hierarchy.py::test_the_blocks_match_the_joint_solve PASSED    [ 30%]
+tests/test_hierarchy.py::test_the_sensitivities_match_the_joint_solve FAILED [ 31%]
+tests/test_hierarchy.py::test_every_block_steps_on_its_own PASSED        [ 31%]
+tests/test_kernel_cache.py::test_the_digest_sees_through_closures PASSED [ 32%]
+tests/test_kernel_cache.py::test_the_digest_follows_globals_and_attributes PASSED [ 32%]
+tests/test_nonautonomous.py::test_rodas5P_nonautonomous_matches_analytical PASSED [ 33%]
+tests/test_nonautonomous.py::test_rodas5P_autonomous_unchanged PASSED    [ 33%]
+tests/test_save_hook.py::test_hook_accumulates_what_the_history_integrates PASSED [ 34%]
+tests/test_save_hook.py::test_hook_can_store_derived_saves_beside_the_history PASSED [ 34%]
+tests/test_save_hook.py::test_save_history_false_needs_a_hook PASSED     [ 35%]
+tests/test_save_hook.py::test_hook_sees_the_joint_state_of_a_sensitivity_solve PASSED [ 35%]
+tests/test_save_hook.py::test_sensitivity_spec_must_fit_the_problem PASSED [ 36%]
+tests/test_save_hook.py::test_quantity_hook_stores_the_quantities[energy_and_position-2] PASSED [ 36%]
+tests/test_save_hook.py::test_quantity_hook_stores_the_quantities[energy_alone-1] PASSED [ 37%]
+tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[False-True-None-energy_and_position-2] PASSED [ 37%]
+tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[False-True-None-energy_alone-1] PASSED [ 38%]
+tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[True-True-None-energy_and_position-2] PASSED [ 38%]
+tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[True-True-None-energy_alone-1] PASSED [ 39%]
+tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[False-True-param_columns2-energy_and_position-2] PASSED [ 39%]
+tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[False-True-param_columns2-energy_alone-1] PASSED [ 40%]
+tests/test_save_hook.py::test_quantity_hook_needs_a_spec_of_its_problem PASSED [ 40%]
+tests/test_sensitivity.py::test_spec_sizes_only_count_requested_blocks PASSED [ 41%]
+tests/test_sensitivity.py::test_spec_error_norm_denominator PASSED       [ 41%]
+tests/test_sensitivity.py::test_augmented_layout_round_trips PASSED      [ 42%]
+tests/test_sensitivity.py::test_jacfwd_matches_closed_form[tsit5] PASSED [ 43%]
+tests/test_sensitivity.py::test_jacfwd_matches_closed_form[rodas5P] PASSED [ 43%]
+tests/test_sensitivity.py::test_nonautonomous_sensitivities_match_closed_form[tsit5] PASSED [ 44%]
+tests/test_sensitivity.py::test_nonautonomous_sensitivities_match_closed_form[rodas5P] PASSED [ 44%]
+tests/test_sensitivity.py::test_grad_matches_central_differences[tsit5] PASSED [ 45%]
+tests/test_sensitivity.py::test_grad_matches_central_differences[rodas5P] PASSED [ 45%]
+tests/test_sensitivity.py::test_value_and_grad_reuses_one_joint_solve[tsit5] PASSED [ 46%]
+tests/test_sensitivity.py::test_value_and_grad_reuses_one_joint_solve[rodas5P] PASSED [ 46%]
+tests/test_sensitivity.py::test_grad_wrt_params_ignores_the_y0_block[tsit5] PASSED [ 47%]
+tests/test_sensitivity.py::test_grad_wrt_params_ignores_the_y0_block[rodas5P] PASSED [ 47%]
+tests/test_sensitivity.py::test_ensemble_gradients_are_per_trajectory[tsit5] PASSED [ 48%]
+tests/test_sensitivity.py::test_ensemble_gradients_are_per_trajectory[rodas5P] PASSED [ 48%]
+tests/test_sensitivity.py::test_grad_through_vmap[tsit5] PASSED          [ 49%]
+tests/test_sensitivity.py::test_grad_through_vmap[rodas5P] PASSED        [ 49%]
+tests/test_sensitivity.py::test_stats_stay_available_under_grad[tsit5] PASSED [ 50%]
+tests/test_sensitivity.py::test_stats_stay_available_under_grad[rodas5P] PASSED [ 50%]
+tests/test_sensitivity.py::test_t_span_is_not_differentiable PASSED      [ 51%]
+tests/test_sensitivity.py::test_joint_solve_keeps_the_plain_step_sequence[tsit5] PASSED [ 51%]
+tests/test_sensitivity.py::test_joint_solve_keeps_the_plain_step_sequence[rodas5P] PASSED [ 52%]
+tests/test_sensitivity.py::test_sens_error_control_is_what_makes_the_gradient_converge[tsit5] PASSED [ 52%]
+tests/test_sensitivity.py::test_sens_error_control_is_what_makes_the_gradient_converge[rodas5P] PASSED [ 53%]
+tests/test_sensitivity.py::test_joint_solve_costs_about_what_the_plain_solve_costs PASSED [ 53%]
+tests/test_sensitivity.py::test_stiff_bilinear_gradients[tsit5] PASSED   [ 54%]
+tests/test_sensitivity.py::test_stiff_bilinear_gradients[rodas5P] PASSED [ 54%]
+tests/test_solver_options.py::test_trajectories_per_block_or_default PASSED [ 55%]
+tests/test_solver_options.py::test_the_time_derivative_term_reaches_the_stages PASSED [ 55%]
+tests/test_solver_options.py::test_each_trajectory_runs_on_its_own_save_times[rodas5p] PASSED [ 56%]
+tests/test_solver_options.py::test_each_trajectory_runs_on_its_own_save_times[tsit5] PASSED [ 56%]
+tests/test_solver_options.py::test_each_trajectory_runs_on_its_own_save_times[auto] PASSED [ 57%]
+tests/test_solver_options.py::test_per_trajectory_save_times_set_the_ensemble_size PASSED [ 58%]
+tests/test_solver_options.py::test_vmap_over_t_span_gives_each_trajectory_its_grid PASSED [ 58%]
+tests/test_solver_vmap.py::test_solver_vmap_over_params_matches_native_ensemble[tsit5-solve-args0-kwargs0] PASSED [ 59%]
+tests/test_solver_vmap.py::test_solver_vmap_over_params_matches_native_ensemble[rodas5P-solve-args1-kwargs1] PASSED [ 59%]
+tests/test_solver_vmap.py::test_solver_vmap_over_y0_and_params_matches_native_ensemble[tsit5-solve-args0-kwargs0] PASSED [ 60%]
+tests/test_solver_vmap.py::test_solver_vmap_over_y0_and_params_matches_native_ensemble[rodas5P-solve-args1-kwargs1] PASSED [ 60%]
+tests/test_solver_vmap.py::test_solvers_auto_jit_plain_python_callbacks PASSED [ 61%]
+tests/test_solver_vmap.py::test_solver_vmap_return_stats_shapes PASSED   [ 61%]
+tests/test_solvers.py::test_tsit5_reference_system[bateman] PASSED       [ 62%]
+tests/test_solvers.py::test_tsit5_reference_system[brusselator] PASSED   [ 62%]
+tests/test_solvers.py::test_tsit5_reference_system[heat] PASSED          [ 63%]
+tests/test_solvers.py::test_tsit5_reference_system[kaps] PASSED          [ 63%]
+tests/test_solvers.py::test_tsit5_reference_system[lorenz] PASSED        [ 64%]
+tests/test_solvers.py::test_tsit5_reference_system[robertson] PASSED     [ 64%]
+tests/test_solvers.py::test_tsit5_reference_system[vdp] PASSED           [ 65%]
+tests/test_solvers.py::test_tsit5_shared_matches_local PASSED            [ 65%]
+tests/test_solvers.py::test_tsit5_shared_backend_rejects_oversized_system PASSED [ 66%]
+tests/test_solvers.py::test_default_first_step_matches_explicit[solve0] PASSED [ 66%]
+tests/test_solvers.py::test_default_first_step_matches_explicit[solve1] PASSED [ 67%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp32-bateman] PASSED [ 67%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp32-brusselator] PASSED [ 68%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp32-heat] PASSED   [ 68%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp32-kaps] PASSED   [ 69%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp32-lorenz] PASSED [ 69%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp32-robertson] PASSED [ 70%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp32-vdp] PASSED    [ 70%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp64-bateman] PASSED [ 71%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp64-brusselator] PASSED [ 72%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp64-heat] PASSED   [ 72%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp64-kaps] PASSED   [ 73%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp64-lorenz] PASSED [ 73%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp64-robertson] PASSED [ 74%]
+tests/test_solvers.py::test_rodas5P_reference_system[fp64-vdp] PASSED    [ 74%]
+tests/test_sparse_direct.py::test_fill_pattern_is_exactly_what_an_unpivoted_lu_touches PASSED [ 75%]
+tests/test_sparse_direct.py::test_amd_undoes_the_worst_case_for_the_natural_order PASSED [ 75%]
+tests/test_sparse_direct.py::test_a_bordered_block_system_needs_no_fill_at_all PASSED [ 76%]
+tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[arrow12] PASSED [ 76%]
+tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[arrow40] PASSED [ 77%]
+tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[ring16] PASSED [ 77%]
+tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[ring64] PASSED [ 78%]
+tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[bordered] PASSED [ 78%]
+tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[disco-like] PASSED [ 79%]
+tests/test_sparse_direct.py::test_the_ordering_is_validated PASSED       [ 79%]
+tests/test_sparse_direct.py::test_layout_is_a_consistent_csr_image[ring] PASSED [ 80%]
+tests/test_sparse_direct.py::test_layout_is_a_consistent_csr_image[arrow] PASSED [ 80%]
+tests/test_sparse_direct.py::test_layout_is_a_consistent_csr_image[bordered] PASSED [ 81%]
+tests/test_sparse_direct.py::test_layout_is_a_consistent_csr_image[dense] PASSED [ 81%]
+tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[ring-natural] PASSED [ 82%]
+tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[ring-amd] PASSED [ 82%]
+tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[arrow-natural] PASSED [ 83%]
+tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[arrow-amd] PASSED [ 83%]
+tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[bordered-natural] PASSED [ 84%]
+tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[bordered-amd] PASSED [ 84%]
+tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[dense-natural] PASSED [ 85%]
+tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[dense-amd] PASSED [ 86%]
+tests/test_sparse_direct.py::test_the_footprint_is_the_factorisation_and_nothing_more PASSED [ 86%]
+tests/test_sparse_direct.py::test_an_undeclared_diagonal_gets_the_factorisations_slot PASSED [ 87%]
+tests/test_sparse_direct.py::test_the_pattern_may_be_coloured_as_tightly_as_it_is PASSED [ 87%]
+tests/test_sparse_direct.py::test_the_solver_is_the_layout_and_the_two_device_functions PASSED [ 88%]
+tests/test_sparse_direct.py::test_it_is_cached_on_the_pattern PASSED     [ 88%]
+tests/test_sparse_direct.py::test_a_dense_pattern_is_the_uninformative_end_of_the_same_mechanism PASSED [ 89%]
+tests/test_sparse_direct.py::test_a_pattern_with_fill_in_solves_the_same PASSED [ 89%]
+tests/test_sparse_direct.py::test_a_pattern_without_a_diagonal_solves_the_same PASSED [ 90%]
+tests/test_sparse_direct.py::test_the_table_driven_form_solves_what_the_unrolled_one_does PASSED [ 90%]
+tests/test_sparse_direct.py::test_gradients_survive_the_sparse_solver PASSED [ 91%]
+tests/test_sparsity.py::test_tridiagonal_needs_three_colours PASSED      [ 91%]
+tests/test_sparsity.py::test_no_pattern_is_the_dense_matrix PASSED       [ 92%]
+tests/test_sparsity.py::test_colouring_is_checked_for_structural_orthogonality PASSED [ 92%]
+tests/test_sparsity.py::test_seed_table_covers_the_parameter_direction PASSED [ 93%]
+tests/test_sparsity.py::test_sparsity_accepts_several_spellings PASSED   [ 93%]
+tests/test_sparsity.py::test_a_pattern_solves_what_no_pattern_solves PASSED [ 94%]
+tests/test_sparsity.py::test_gradients_survive_compression PASSED        [ 94%]
+tests/test_split.py::test_the_pattern_splits PASSED                      [ 95%]
+tests/test_split.py::test_the_driver_is_closed_under_dependence PASSED   [ 95%]
+tests/test_split.py::test_split_matches_the_exact_solution[False] PASSED [ 96%]
+tests/test_split.py::test_split_matches_the_exact_solution[True] PASSED  [ 96%]
+tests/test_split.py::test_split_and_plain_agree_to_the_tolerance PASSED  [ 97%]
+tests/test_split.py::test_split_sensitivities_match_the_closed_form PASSED [ 97%]
+tests/test_split.py::test_split_with_a_save_hook_sees_the_user_layout PASSED [ 98%]
+tests/test_split.py::test_the_driver_steps_on_its_own PASSED             [ 98%]
+tests/test_split.py::test_from_sparsity_is_the_split_solve PASSED        [ 99%]
+tests/test_split.py::test_from_sparsity_refuses_a_pattern_that_does_not_split PASSED [100%]
+
+=================================== FAILURES ===================================
+__________ test_an_explicit_target_is_validated_as_numba_enzyme_does ___________
+
+device = <Mock id='139701226561568'>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f0eb9fbcb80>
+
+    def test_an_explicit_target_is_validated_as_numba_enzyme_does(device, monkeypatch):
+        monkeypatch.setenv("NUMBA_ENZYME_CUDA_CC", "6.1")
+>       with pytest.raises(CUDAEnzymeError, match=r"7\.0\+"):
+E       Failed: DID NOT RAISE CUDAEnzymeError
+
+tests/test_blackwell.py:79: Failed
+_________________ test_the_sensitivities_match_the_joint_solve _________________
+
+    def test_the_sensitivities_match_the_joint_solve():
+        def tangent(ode, dp):
+            def at(p):
+                return solve(ode, Y0, T_SPAN, p, **TOL)
+    
+            return np.asarray(jax.jvp(at, (P,), (dp,))[1])
+    
+        for dp in (
+            jnp.array([[1.0, 0.0, 0.0]] * 2),
+            jnp.array([[0.0, 1.0, 0.0]] * 2),
+            jnp.array([[0.0, 0.0, 1.0]] * 2),
+        ):
+            split = tangent(CHAIN, dp)
+            whole = tangent(joint, dp)
+>           assert np.abs(split - whole).max() < 1e-6 * max(1.0, np.abs(whole).max())
+E           AssertionError: assert np.float64(nan) < (1e-06 * np.float64(1.4153700878018565))
+E            +  where np.float64(nan) = <built-in method max of numpy.ndarray object at 0x7f0a0f343e10>()
+E            +    where <built-in method max of numpy.ndarray object at 0x7f0a0f343e10> = array([[[0.        , 0.        , 0.        ],\n        [0.1790597 ,        nan, 0.13907034],\n        [0.3471596 ,        nan, 0.28667052],\n        [0.43180845,        nan, 0.40518235],\n        [0.4005146 ,        nan, 0.43841272],\n        [0.25819357,        nan, 0.31475539],\n        [0.04068776,        nan, 0.07541615]],\n\n       [[0.        , 0.        , 0.        ],\n        [0.49305733,        nan, 0.16482957],\n        [0.93424944,        nan, 0.30068572],\n        [1.25630878,        nan, 0.56099303],\n        [1.3997383 ,        nan, 1.02980529],\n        [1.33485061,        nan, 1.41537009],\n        [1.07424997,        nan, 1.32142983]]]).max
+E            +      where array([[[0.        , 0.        , 0.        ],\n        [0.1790597 ,        nan, 0.13907034],\n        [0.3471596 ,        nan, 0.28667052],\n        [0.43180845,        nan, 0.40518235],\n        [0.4005146 ,        nan, 0.43841272],\n        [0.25819357,        nan, 0.31475539],\n        [0.04068776,        nan, 0.07541615]],\n\n       [[0.        , 0.        , 0.        ],\n        [0.49305733,        nan, 0.16482957],\n        [0.93424944,        nan, 0.30068572],\n        [1.25630878,        nan, 0.56099303],\n        [1.3997383 ,        nan, 1.02980529],\n        [1.33485061,        nan, 1.41537009],\n        [1.07424997,        nan, 1.32142983]]]) = <ufunc 'absolute'>((array([[[ 0.,  0.,  0.],\n        [ 0., nan,  0.],\n        [ 0., nan,  0.],\n        [ 0., nan,  0.],\n        [ 0., nan,  0.],\n        [ 0., nan,  0.],\n        [ 0., nan,  0.]],\n\n       [[ 0.,  0.,  0.],\n        [ 0., nan,  0.],\n        [ 0., nan,  0.],\n        [ 0., nan,  0.],\n        [ 0., nan,  0.],\n        [ 0., nan,  0.],\n        [ 0., nan,  0.]]]) - array([[[ 0.        ,  0.        ,  0.        ],\n        [-0.1790597 , -0.14321453, -0.13907034],\n        [-0.3471596 , -0.28640485, -0.28667052],\n        [-0.43180845, -0.40020116, -0.40518235],\n        [-0.4005146 , -0.4266632 , -0.43841272],\n        [-0.25819357, -0.29833825, -0.31475539],\n        [-0.04068776, -0.06172865, -0.07541615]],\n\n       [[ 0.        ,  0.        ,  0.        ],\n        [-0.49305733, -0.17788907, -0.16482957],\n        [-0.93424944, -0.30356261, -0.30068572],\n        [-1.25630878, -0.58101143, -0.56099303],\n        [-1.3997383 , -1.03145467, -1.02980529],\n        [-1.33485061, -1.32643882, -1.41537009],\n        [-1.07424997, -1.14311845, -1.32142983]]])))
+E            +        where <ufunc 'absolute'> = np.abs
+E            +  and   np.float64(1.4153700878018565) = max(1.0, np.float64(1.4153700878018565))
+E            +    where np.float64(1.4153700878018565) = <built-in method max of numpy.ndarray object at 0x7f0a38899ad0>()
+E            +      where <built-in method max of numpy.ndarray object at 0x7f0a38899ad0> = array([[[0.        , 0.        , 0.        ],\n        [0.1790597 , 0.14321453, 0.13907034],\n        [0.3471596 , 0.28640485, 0.28667052],\n        [0.43180845, 0.40020116, 0.40518235],\n        [0.4005146 , 0.4266632 , 0.43841272],\n        [0.25819357, 0.29833825, 0.31475539],\n        [0.04068776, 0.06172865, 0.07541615]],\n\n       [[0.        , 0.        , 0.        ],\n        [0.49305733, 0.17788907, 0.16482957],\n        [0.93424944, 0.30356261, 0.30068572],\n        [1.25630878, 0.58101143, 0.56099303],\n        [1.3997383 , 1.03145467, 1.02980529],\n        [1.33485061, 1.32643882, 1.41537009],\n        [1.07424997, 1.14311845, 1.32142983]]]).max
+E            +        where array([[[0.        , 0.        , 0.        ],\n        [0.1790597 , 0.14321453, 0.13907034],\n        [0.3471596 , 0.28640485, 0.28667052],\n        [0.43180845, 0.40020116, 0.40518235],\n        [0.4005146 , 0.4266632 , 0.43841272],\n        [0.25819357, 0.29833825, 0.31475539],\n        [0.04068776, 0.06172865, 0.07541615]],\n\n       [[0.        , 0.        , 0.        ],\n        [0.49305733, 0.17788907, 0.16482957],\n        [0.93424944, 0.30356261, 0.30068572],\n        [1.25630878, 0.58101143, 0.56099303],\n        [1.3997383 , 1.03145467, 1.02980529],\n        [1.33485061, 1.32643882, 1.41537009],\n        [1.07424997, 1.14311845, 1.32142983]]]) = <ufunc 'absolute'>(array([[[ 0.        ,  0.        ,  0.        ],\n        [-0.1790597 , -0.14321453, -0.13907034],\n        [-0.3471596 , -0.28640485, -0.28667052],\n        [-0.43180845, -0.40020116, -0.40518235],\n        [-0.4005146 , -0.4266632 , -0.43841272],\n        [-0.25819357, -0.29833825, -0.31475539],\n        [-0.04068776, -0.06172865, -0.07541615]],\n\n       [[ 0.        ,  0.        ,  0.        ],\n        [-0.49305733, -0.17788907, -0.16482957],\n        [-0.93424944, -0.30356261, -0.30068572],\n        [-1.25630878, -0.58101143, -0.56099303],\n        [-1.3997383 , -1.03145467, -1.02980529],\n        [-1.33485061, -1.32643882, -1.41537009],\n        [-1.07424997, -1.14311845, -1.32142983]]]))
+E            +          where <ufunc 'absolute'> = np.abs
+
+tests/test_hierarchy.py:94: AssertionError
+=============================== warnings summary ===============================
+../../modax-check/venv-a/lib/python3.10/site-packages/anyio/pytest_plugin.py:14
+  /tmp/sh2099-disco-eb/modax-check/venv-a/lib/python3.10/site-packages/anyio/pytest_plugin.py:14: PytestRemovedIn10Warning: _pytest.python.CallSpec2 has been renamed to CallSpec.
+  The CallSpec2 alias will be removed in pytest 10.
+  Update imports to use CallSpec instead.
+  See https://docs.pytest.org/en/stable/deprecations.html#callspec2-renamed
+    from _pytest.python import CallSpec2
+
+tests/test_enzyme_jacobian.py: 10 warnings
+tests/test_examples.py: 24 warnings
+  /tmp/sh2099-disco-eb/modax-check/venv-a/lib/python3.10/site-packages/numba_cuda_mlir/descriptor.py:2050: NumbaPerformanceWarning: Grid size 1 will likely result in GPU under-utilization due to low occupancy.
+    warnings.warn(NumbaPerformanceWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_benchmark_common.py::test_timeout_cache_helpers
+PASSED tests/test_blackwell.py::test_older_gpus_are_their_own_target[capability0]
+PASSED tests/test_blackwell.py::test_older_gpus_are_their_own_target[capability1]
+PASSED tests/test_blackwell.py::test_older_gpus_are_their_own_target[capability2]
+PASSED tests/test_blackwell.py::test_blackwell_compiles_for_hopper[capability0]
+PASSED tests/test_blackwell.py::test_blackwell_compiles_for_hopper[capability1]
+PASSED tests/test_blackwell.py::test_blackwell_compiles_for_hopper[capability2]
+PASSED tests/test_blackwell.py::test_the_target_is_resolved_once
+PASSED tests/test_blackwell.py::test_an_explicit_target_overrides_the_device
+PASSED tests/test_blackwell.py::test_derivatives_are_built_for_the_kernel_target
+PASSED tests/test_blackwell.py::test_rodas5p_links_for_blackwell[False]
+PASSED tests/test_blackwell.py::test_rodas5p_links_for_blackwell[True]
+PASSED tests/test_blackwell.py::test_tsit5_sensitivities_link_for_blackwell
+PASSED tests/test_block_methods.py::test_mixed_methods_match_the_joint_solve[tsit-root]
+PASSED tests/test_block_methods.py::test_mixed_methods_match_the_joint_solve[tsit-sink]
+PASSED tests/test_block_methods.py::test_mixed_methods_match_the_joint_solve[all-tsit]
+PASSED tests/test_block_methods.py::test_mixed_methods_match_the_joint_solve[all-auto]
+PASSED tests/test_block_methods.py::test_mixed_methods_match_the_joint_solve[mixed]
+PASSED tests/test_block_methods.py::test_modax_solve_takes_the_default_method
+PASSED tests/test_block_methods.py::test_the_plain_solvers_refuse_blocks
+PASSED tests/test_block_methods.py::test_auto_switches_to_rodas_where_the_problem_turns_stiff
+PASSED tests/test_block_methods.py::test_an_upstream_auto_block_switches_where_its_problem_turns_stiff
+PASSED tests/test_block_methods.py::test_explicit_blocks_refuse_sensitivities
+PASSED tests/test_block_methods.py::test_an_upstream_block_factorises_in_double
+PASSED tests/test_block_methods.py::test_the_solves_precision_skips_upstream_blocks
+PASSED tests/test_block_methods.py::test_a_method_is_checked
+PASSED tests/test_block_methods.py::test_the_method_carries_its_own_options
+PASSED tests/test_block_methods.py::test_a_plain_tsit5_solve_ignores_sparsity
+PASSED tests/test_block_methods.py::test_a_plain_tsit5_solve_takes_a_save_hook_on_the_hierarchy_kernel
+PASSED tests/test_block_methods.py::test_method_options_are_checked
+PASSED tests/test_block_methods.py::test_a_repeated_plain_auto_solve_reuses_its_block
+PASSED tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[bateman]
+PASSED tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[brusselator]
+PASSED tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[heat]
+PASSED tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[kaps]
+PASSED tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[lorenz]
+PASSED tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[robertson]
+PASSED tests/test_enzyme_jacobian.py::test_enzyme_jacobian_matches_jax[vdp]
+PASSED tests/test_enzyme_jacobian.py::test_enzyme_jacobian_recovers_a_time_derivative
+PASSED tests/test_enzyme_jacobian.py::test_enzyme_jacobian_of_a_looped_right_hand_side
+PASSED tests/test_examples.py::test_device_callbacks_compile[bbn_estimation]
+PASSED tests/test_examples.py::test_device_callbacks_compile[21cm_igm_evolution]
+PASSED tests/test_examples.py::test_device_rhs_matches_jnp[bbn_estimation]
+PASSED tests/test_examples.py::test_device_rhs_matches_jnp[21cm_igm_evolution]
+PASSED tests/test_examples.py::test_traced_rhs_pickles[bbn_estimation]
+PASSED tests/test_examples.py::test_traced_rhs_pickles[21cm_igm_evolution]
+PASSED tests/test_examples.py::test_enzyme_derivatives_match_autodiff[bbn_estimation]
+PASSED tests/test_examples.py::test_enzyme_derivatives_match_autodiff[21cm_igm_evolution]
+PASSED tests/test_examples.py::test_mukhanov_background_device_rhs_matches_jnp
+PASSED tests/test_examples.py::test_mukhanov_mode_rhs_fits_in_constant_memory
+PASSED tests/test_examples.py::test_mukhanov_mode_device_rhs_matches_jnp
+PASSED tests/test_examples.py::test_mukhanov_mode_rhs_pickles
+PASSED tests/test_examples.py::test_mukhanov_mode_device_rhs_clamps_outside_the_table
+PASSED tests/test_hierarchy.py::test_the_hierarchy_orders_the_blocks_upstream_first
+PASSED tests/test_hierarchy.py::test_a_cycle_is_refused
+PASSED tests/test_hierarchy.py::test_the_blocks_match_the_joint_solve
+PASSED tests/test_hierarchy.py::test_every_block_steps_on_its_own
+PASSED tests/test_kernel_cache.py::test_the_digest_sees_through_closures
+PASSED tests/test_kernel_cache.py::test_the_digest_follows_globals_and_attributes
+PASSED tests/test_nonautonomous.py::test_rodas5P_nonautonomous_matches_analytical
+PASSED tests/test_nonautonomous.py::test_rodas5P_autonomous_unchanged
+PASSED tests/test_save_hook.py::test_hook_accumulates_what_the_history_integrates
+PASSED tests/test_save_hook.py::test_hook_can_store_derived_saves_beside_the_history
+PASSED tests/test_save_hook.py::test_save_history_false_needs_a_hook
+PASSED tests/test_save_hook.py::test_hook_sees_the_joint_state_of_a_sensitivity_solve
+PASSED tests/test_save_hook.py::test_sensitivity_spec_must_fit_the_problem
+PASSED tests/test_save_hook.py::test_quantity_hook_stores_the_quantities[energy_and_position-2]
+PASSED tests/test_save_hook.py::test_quantity_hook_stores_the_quantities[energy_alone-1]
+PASSED tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[False-True-None-energy_and_position-2]
+PASSED tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[False-True-None-energy_alone-1]
+PASSED tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[True-True-None-energy_and_position-2]
+PASSED tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[True-True-None-energy_alone-1]
+PASSED tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[False-True-param_columns2-energy_and_position-2]
+PASSED tests/test_save_hook.py::test_quantity_hook_stores_their_tangents[False-True-param_columns2-energy_alone-1]
+PASSED tests/test_save_hook.py::test_quantity_hook_needs_a_spec_of_its_problem
+PASSED tests/test_sensitivity.py::test_spec_sizes_only_count_requested_blocks
+PASSED tests/test_sensitivity.py::test_spec_error_norm_denominator
+PASSED tests/test_sensitivity.py::test_augmented_layout_round_trips
+PASSED tests/test_sensitivity.py::test_jacfwd_matches_closed_form[tsit5]
+PASSED tests/test_sensitivity.py::test_jacfwd_matches_closed_form[rodas5P]
+PASSED tests/test_sensitivity.py::test_nonautonomous_sensitivities_match_closed_form[tsit5]
+PASSED tests/test_sensitivity.py::test_nonautonomous_sensitivities_match_closed_form[rodas5P]
+PASSED tests/test_sensitivity.py::test_grad_matches_central_differences[tsit5]
+PASSED tests/test_sensitivity.py::test_grad_matches_central_differences[rodas5P]
+PASSED tests/test_sensitivity.py::test_value_and_grad_reuses_one_joint_solve[tsit5]
+PASSED tests/test_sensitivity.py::test_value_and_grad_reuses_one_joint_solve[rodas5P]
+PASSED tests/test_sensitivity.py::test_grad_wrt_params_ignores_the_y0_block[tsit5]
+PASSED tests/test_sensitivity.py::test_grad_wrt_params_ignores_the_y0_block[rodas5P]
+PASSED tests/test_sensitivity.py::test_ensemble_gradients_are_per_trajectory[tsit5]
+PASSED tests/test_sensitivity.py::test_ensemble_gradients_are_per_trajectory[rodas5P]
+PASSED tests/test_sensitivity.py::test_grad_through_vmap[tsit5]
+PASSED tests/test_sensitivity.py::test_grad_through_vmap[rodas5P]
+PASSED tests/test_sensitivity.py::test_stats_stay_available_under_grad[tsit5]
+PASSED tests/test_sensitivity.py::test_stats_stay_available_under_grad[rodas5P]
+PASSED tests/test_sensitivity.py::test_t_span_is_not_differentiable
+PASSED tests/test_sensitivity.py::test_joint_solve_keeps_the_plain_step_sequence[tsit5]
+PASSED tests/test_sensitivity.py::test_joint_solve_keeps_the_plain_step_sequence[rodas5P]
+PASSED tests/test_sensitivity.py::test_sens_error_control_is_what_makes_the_gradient_converge[tsit5]
+PASSED tests/test_sensitivity.py::test_sens_error_control_is_what_makes_the_gradient_converge[rodas5P]
+PASSED tests/test_sensitivity.py::test_joint_solve_costs_about_what_the_plain_solve_costs
+PASSED tests/test_sensitivity.py::test_stiff_bilinear_gradients[tsit5]
+PASSED tests/test_sensitivity.py::test_stiff_bilinear_gradients[rodas5P]
+PASSED tests/test_solver_options.py::test_trajectories_per_block_or_default
+PASSED tests/test_solver_options.py::test_the_time_derivative_term_reaches_the_stages
+PASSED tests/test_solver_options.py::test_each_trajectory_runs_on_its_own_save_times[rodas5p]
+PASSED tests/test_solver_options.py::test_each_trajectory_runs_on_its_own_save_times[tsit5]
+PASSED tests/test_solver_options.py::test_each_trajectory_runs_on_its_own_save_times[auto]
+PASSED tests/test_solver_options.py::test_per_trajectory_save_times_set_the_ensemble_size
+PASSED tests/test_solver_options.py::test_vmap_over_t_span_gives_each_trajectory_its_grid
+PASSED tests/test_solver_vmap.py::test_solver_vmap_over_params_matches_native_ensemble[tsit5-solve-args0-kwargs0]
+PASSED tests/test_solver_vmap.py::test_solver_vmap_over_params_matches_native_ensemble[rodas5P-solve-args1-kwargs1]
+PASSED tests/test_solver_vmap.py::test_solver_vmap_over_y0_and_params_matches_native_ensemble[tsit5-solve-args0-kwargs0]
+PASSED tests/test_solver_vmap.py::test_solver_vmap_over_y0_and_params_matches_native_ensemble[rodas5P-solve-args1-kwargs1]
+PASSED tests/test_solver_vmap.py::test_solvers_auto_jit_plain_python_callbacks
+PASSED tests/test_solver_vmap.py::test_solver_vmap_return_stats_shapes
+PASSED tests/test_solvers.py::test_tsit5_reference_system[bateman]
+PASSED tests/test_solvers.py::test_tsit5_reference_system[brusselator]
+PASSED tests/test_solvers.py::test_tsit5_reference_system[heat]
+PASSED tests/test_solvers.py::test_tsit5_reference_system[kaps]
+PASSED tests/test_solvers.py::test_tsit5_reference_system[lorenz]
+PASSED tests/test_solvers.py::test_tsit5_reference_system[robertson]
+PASSED tests/test_solvers.py::test_tsit5_reference_system[vdp]
+PASSED tests/test_solvers.py::test_tsit5_shared_matches_local
+PASSED tests/test_solvers.py::test_tsit5_shared_backend_rejects_oversized_system
+PASSED tests/test_solvers.py::test_default_first_step_matches_explicit[solve0]
+PASSED tests/test_solvers.py::test_default_first_step_matches_explicit[solve1]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp32-bateman]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp32-brusselator]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp32-heat]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp32-kaps]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp32-lorenz]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp32-robertson]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp32-vdp]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp64-bateman]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp64-brusselator]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp64-heat]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp64-kaps]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp64-lorenz]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp64-robertson]
+PASSED tests/test_solvers.py::test_rodas5P_reference_system[fp64-vdp]
+PASSED tests/test_sparse_direct.py::test_fill_pattern_is_exactly_what_an_unpivoted_lu_touches
+PASSED tests/test_sparse_direct.py::test_amd_undoes_the_worst_case_for_the_natural_order
+PASSED tests/test_sparse_direct.py::test_a_bordered_block_system_needs_no_fill_at_all
+PASSED tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[arrow12]
+PASSED tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[arrow40]
+PASSED tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[ring16]
+PASSED tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[ring64]
+PASSED tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[bordered]
+PASSED tests/test_sparse_direct.py::test_amd_fills_what_it_always_has[disco-like]
+PASSED tests/test_sparse_direct.py::test_the_ordering_is_validated
+PASSED tests/test_sparse_direct.py::test_layout_is_a_consistent_csr_image[ring]
+PASSED tests/test_sparse_direct.py::test_layout_is_a_consistent_csr_image[arrow]
+PASSED tests/test_sparse_direct.py::test_layout_is_a_consistent_csr_image[bordered]
+PASSED tests/test_sparse_direct.py::test_layout_is_a_consistent_csr_image[dense]
+PASSED tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[ring-natural]
+PASSED tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[ring-amd]
+PASSED tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[arrow-natural]
+PASSED tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[arrow-amd]
+PASSED tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[bordered-natural]
+PASSED tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[bordered-amd]
+PASSED tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[dense-natural]
+PASSED tests/test_sparse_direct.py::test_the_compiled_tables_factorise_the_matrix[dense-amd]
+PASSED tests/test_sparse_direct.py::test_the_footprint_is_the_factorisation_and_nothing_more
+PASSED tests/test_sparse_direct.py::test_an_undeclared_diagonal_gets_the_factorisations_slot
+PASSED tests/test_sparse_direct.py::test_the_pattern_may_be_coloured_as_tightly_as_it_is
+PASSED tests/test_sparse_direct.py::test_the_solver_is_the_layout_and_the_two_device_functions
+PASSED tests/test_sparse_direct.py::test_it_is_cached_on_the_pattern
+PASSED tests/test_sparse_direct.py::test_a_dense_pattern_is_the_uninformative_end_of_the_same_mechanism
+PASSED tests/test_sparse_direct.py::test_a_pattern_with_fill_in_solves_the_same
+PASSED tests/test_sparse_direct.py::test_a_pattern_without_a_diagonal_solves_the_same
+PASSED tests/test_sparse_direct.py::test_the_table_driven_form_solves_what_the_unrolled_one_does
+PASSED tests/test_sparse_direct.py::test_gradients_survive_the_sparse_solver
+PASSED tests/test_sparsity.py::test_tridiagonal_needs_three_colours
+PASSED tests/test_sparsity.py::test_no_pattern_is_the_dense_matrix
+PASSED tests/test_sparsity.py::test_colouring_is_checked_for_structural_orthogonality
+PASSED tests/test_sparsity.py::test_seed_table_covers_the_parameter_direction
+PASSED tests/test_sparsity.py::test_sparsity_accepts_several_spellings
+PASSED tests/test_sparsity.py::test_a_pattern_solves_what_no_pattern_solves
+PASSED tests/test_sparsity.py::test_gradients_survive_compression
+PASSED tests/test_split.py::test_the_pattern_splits
+PASSED tests/test_split.py::test_the_driver_is_closed_under_dependence
+PASSED tests/test_split.py::test_split_matches_the_exact_solution[False]
+PASSED tests/test_split.py::test_split_matches_the_exact_solution[True]
+PASSED tests/test_split.py::test_split_and_plain_agree_to_the_tolerance
+PASSED tests/test_split.py::test_split_sensitivities_match_the_closed_form
+PASSED tests/test_split.py::test_split_with_a_save_hook_sees_the_user_layout
+PASSED tests/test_split.py::test_the_driver_steps_on_its_own
+PASSED tests/test_split.py::test_from_sparsity_is_the_split_solve
+PASSED tests/test_split.py::test_from_sparsity_refuses_a_pattern_that_does_not_split
+SKIPPED [1] tests/test_gradsolve_reference.py:18: could not import 'gradsolve': No module named 'gradsolve'
+SKIPPED [2] tests/test_blackwell.py:186: needs a Blackwell GPU
+FAILED tests/test_blackwell.py::test_an_explicit_target_is_validated_as_numba_enzyme_does
+FAILED tests/test_hierarchy.py::test_the_sensitivities_match_the_joint_solve
+====== 2 failed, 189 passed, 3 skipped, 35 warnings in 1586.46s (0:26:26) ======
+[runner] modax /tmp/sh2099-disco-eb/modax-check-03/src-a/modax/__init__.py commit 0d8b9a1bccbe9235919881f7ccdaabf2662f3fe3 from MC_SRC: True
+[runner] modax._target: absent | CPU-target modules imported: none
+exit 1 after 1622 s

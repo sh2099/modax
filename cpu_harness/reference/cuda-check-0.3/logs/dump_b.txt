@@ -1,0 +1,23 @@
+[mrun] 2026-11-16T18:48:42+00:00 host cap006a.ast.cam.ac.uk side b GPU 0 modax 30a2be331f76ac647e16e29d0b2afb9fd33bc445
+[mrun] /tmp/sh2099-disco-eb/modax-check-03/scripts/dump_hier.py /tmp/sh2099-disco-eb/modax-check-03/out/dump_b
+[dump] wrapped compile_device_source in modax._hierarchy
+[dump] wrapped compile_device_source in modax._sparse_direct
+[dump] wrapped compile_device_source in modax._split
+[dump] wrapped compile_device_source in modax.rodas5P
+[dump] hier3_plain: kernel 736 lines; 7 generated device functions, 88 lines
+[dump] hier2_plain: kernel 387 lines; 4 generated device functions, 41 lines
+[dump] hier2_mixed_tsit5_root: kernel 373 lines; 2 generated device functions, 29 lines
+[dump] hier3_fp32_default: kernel 736 lines; 7 generated device functions, 88 lines
+[dump] hier3_auto: kernel 1187 lines; 10 generated device functions, 109 lines
+[dump] hier3_jvp_params: kernel 833 lines; 7 generated device functions, 88 lines
+[dump] hier2_jvp_y0: kernel 442 lines; 4 generated device functions, 41 lines
+[dump] hier3_qhook: kernel 749 lines; 7 generated device functions, 88 lines
+[dump] hier3_qhook_sens: kernel 857 lines; 7 generated device functions, 88 lines
+[dump] onebl_tsit5_qhook: kernel 157 lines; 0 generated device functions, 0 lines
+[dump] onebl_auto: kernel 259 lines; 2 generated device functions, 23 lines
+[dump] plain_rodas5p_qhook_sens: kernel 0 lines; 1 generated device functions, 13 lines
+[dump] plain_sparse_fp64: kernel 0 lines; 3 generated device functions, 35 lines
+[dump] plain_sparse_jvp: kernel 0 lines; 1 generated device functions, 17 lines
+[runner] modax /tmp/sh2099-disco-eb/modax-check-03/src-b/modax/__init__.py commit 30a2be331f76ac647e16e29d0b2afb9fd33bc445 from MC_SRC: True
+[runner] modax._target: TARGET=cuda CPU_DERIVATIVES=enzyme | CPU-target modules imported: ['modax._differences']
+exit 0 after 500 s

@@ -1,0 +1,72 @@
+=== hier2_auto_jvp_p1
+jax.errors.SimplifiedTraceback: For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/sh2099-disco-eb/modax-check-03/scripts/solves.py", line 43, in deco
+    keep(name, fn())
+  File "/tmp/sh2099-disco-eb/modax-check-03/scripts/solves.py", line 253, in _
+    return jax.jvp(f, (P,), (jnp.zeros((2, 3)).at[:, 1].set(1.0),))
+  File "/tmp/sh2099-disco-eb/modax-check-03/scripts/solves.py", line 252, in <lambda>
+    f = lambda p: solve(TWO, Y0[:, :2], T_SPAN, p, method=Auto(), rtol=1e-6, atol=1e-9)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_solve.py", line 250, in solve
+    return rodas5P._solve(
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/rodas5P.py", line 1742, in _solve
+    return differentiable_solve(
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_jax_common.py", line 301, in differentiable_solve
+    return make_sensitivity_solver(
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_sensitivity.py", line 535, in solve_jvp
+    out = solver_for(spec)(y0, t_span, params)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_jax_common.py", line 240, in _solve
+    return solve_impl(jnp.asarray(y0), jnp.asarray(t_span), jnp.asarray(params))
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/rodas5P.py", line 1766, in _solve_impl
+    hist, _, stats = _launch(ode_fn, y0, t_span, params, options, settings)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/rodas5P.py", line 1780, in _launch
+    launch = _make_jax_launch(ode_fn, inputs.n, inputs.n_vars, inputs.n_params, options)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/rodas5P.py", line 1295, in _make_jax_launch
+    kernel, trajectories_per_block = make_hierarchy_kernel(
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_hierarchy.py", line 3140, in make_hierarchy_kernel
+    methods = tuple(resolve_method(bp, options) for bp in plan.blocks)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_hierarchy.py", line 3140, in <genexpr>
+    methods = tuple(resolve_method(bp, options) for bp in plan.blocks)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_hierarchy.py", line 467, in resolve_method
+    raise NotImplementedError(
+NotImplementedError: a: forward sensitivities through an explicit (Auto) block are not implemented
+
+=== hier3_auto_jvp_p2
+jax.errors.SimplifiedTraceback: For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/sh2099-disco-eb/modax-check-03/scripts/solves.py", line 43, in deco
+    keep(name, fn())
+  File "/tmp/sh2099-disco-eb/modax-check-03/scripts/solves.py", line 258, in _
+    return jax.jvp(f, (P,), (jnp.zeros((2, 3)).at[:, 2].set(1.0),))
+  File "/tmp/sh2099-disco-eb/modax-check-03/scripts/solves.py", line 257, in <lambda>
+    f = lambda p: solve(CHAIN, Y0, T_SPAN, p, method=Auto(), rtol=1e-6, atol=1e-9)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_solve.py", line 250, in solve
+    return rodas5P._solve(
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/rodas5P.py", line 1742, in _solve
+    return differentiable_solve(
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_jax_common.py", line 301, in differentiable_solve
+    return make_sensitivity_solver(
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_sensitivity.py", line 535, in solve_jvp
+    out = solver_for(spec)(y0, t_span, params)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_jax_common.py", line 240, in _solve
+    return solve_impl(jnp.asarray(y0), jnp.asarray(t_span), jnp.asarray(params))
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/rodas5P.py", line 1766, in _solve_impl
+    hist, _, stats = _launch(ode_fn, y0, t_span, params, options, settings)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/rodas5P.py", line 1780, in _launch
+    launch = _make_jax_launch(ode_fn, inputs.n, inputs.n_vars, inputs.n_params, options)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/rodas5P.py", line 1295, in _make_jax_launch
+    kernel, trajectories_per_block = make_hierarchy_kernel(
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_hierarchy.py", line 3140, in make_hierarchy_kernel
+    methods = tuple(resolve_method(bp, options) for bp in plan.blocks)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_hierarchy.py", line 3140, in <genexpr>
+    methods = tuple(resolve_method(bp, options) for bp in plan.blocks)
+  File "/tmp/sh2099-disco-eb/modax-check-03/src-b/modax/_hierarchy.py", line 467, in resolve_method
+    raise NotImplementedError(
+NotImplementedError: a: forward sensitivities through an explicit (Auto) block are not implemented
+

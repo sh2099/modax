@@ -1,0 +1,63 @@
+[mrun] 2026-11-16T17:27:41+00:00 host cap006a.ast.cam.ac.uk side a GPU 0 modax 0d8b9a1bccbe9235919881f7ccdaabf2662f3fe3
+[mrun] /tmp/sh2099-disco-eb/modax-check-03/scripts/solves.py /tmp/sh2099-disco-eb/modax-check-03/out/solves_a1.npz
+[case] rob_rodas5p_fp64: ok 7.4 s
+[case] rob_rodas5p_default_fp32: ok 6.0 s
+[case] rob_rodas5p_module_fp32: ok 6.2 s
+[case] rob_rodas5p_module_fp64: ok 6.1 s
+[case] rob_auto: ok 9.0 s
+[case] rob_rodas5p_fp64_cache: ok 6.2 s
+[case] rob_jit_vmap_fp64: ok 0.1 s
+[case] rob_jvp_params_fp64: ok 17.5 s
+[case] rob_jvp_params_cols02_noerrctl: ok 18.1 s
+[case] rob_jvp_y0_fp32: ok 17.8 s
+[case] rob_jacfwd_params_one: ok 0.7 s
+[case] lorenz_tsit5_local: ok 2.9 s
+[case] lorenz_tsit5_shared: ok 5.1 s
+[case] lorenz_tsit5_auto: ok 0.0 s
+[case] lorenz_tsit5_module_shared: ok 0.0 s
+[case] lorenz_tsit5_local_cache: ok 2.0 s
+[case] lorenz_tsit5_jvp_params: ok 10.5 s
+[case] lorenz_tsit5_jvp_y0: ok 9.7 s
+[case] lorenz_tsit5_grad: ok 0.8 s
+[case] lorenz_auto: ok 9.9 s
+[case] lorenz_rodas5p_fp32: ok 6.1 s
+[case] hier3_fp64: ok 37.2 s
+[case] hier2_fp64: ok 18.9 s
+[case] hier2_mixed_tsit5_root: ok 14.6 s
+[case] hier3_default_method: ok 37.5 s
+[case] hier3_auto: ok 54.0 s
+[case] hier2_auto: ok 26.9 s
+[case] hier3_cache: ok 37.0 s
+[case] hier3_jvp_p0: ok 108.8 s
+[case] hier3_jvp_p1: ok 3.7 s
+[case] hier3_jvp_p2: ok 3.7 s
+[case] hier3_jvp_y0: ok 102.8 s
+[case] hier2_jvp_p0: ok 53.3 s
+[case] hier2_jvp_p1: ok 0.0 s
+[case] hier2_jvp_y0: ok 52.9 s
+[case] hier2_auto_jvp_p1: ERROR NotImplementedError: a: forward sensitivities through an explicit (Auto) block are not implemented
+[case] hier3_auto_jvp_p2: ERROR NotImplementedError: a: forward sensitivities through an explicit (Auto) block are not implemented
+[case] chain_sparse_fp64: ok 4.2 s
+[case] chain_dense_fp64: ok 8.0 s
+[case] chain_sparse_fp32: ok 3.8 s
+[case] chain_sparse_grad: ok 13.0 s
+[case] hook_raw_integrate_nohistory_module: ok 5.2 s
+[case] hook_raw_store_energy: ok 7.7 s
+[case] qhook_rodas5p: ok 5.4 s
+[case] qhook_nohistory_rodas5p: ok 7.8 s
+[case] qhook_tsit5: ok 2.2 s
+[case] qhook_nohistory_tsit5: ok 2.2 s
+[case] qhook_auto: ok 10.8 s
+[case] qhook_nohistory_auto: ok 7.9 s
+[case] qhook_sens_p: ok 19.2 s
+[case] qhook_sens_y0p: ok 19.4 s
+[case] qhook_sens_p0_errctl: ok 19.4 s
+[case] qhook_sens_p_module_history: ok 19.8 s
+[case] hier3_qhook: ok 38.4 s
+[case] hier3_qhook_auto: ok 54.2 s
+[case] hier3_qhook_sens_p: ok 114.2 s
+[case] hier2_qhook_sens_y0p: ok 57.7 s
+saved 197 arrays, 2 errored cases -> /tmp/sh2099-disco-eb/modax-check-03/out/solves_a1.npz
+[runner] modax /tmp/sh2099-disco-eb/modax-check-03/src-a/modax/__init__.py commit 0d8b9a1bccbe9235919881f7ccdaabf2662f3fe3 from MC_SRC: True
+[runner] modax._target: absent | CPU-target modules imported: none
+exit 0 after 1135 s

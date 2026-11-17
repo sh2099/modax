@@ -1,0 +1,18 @@
+[mrun] 2026-11-16T17:26:02+00:00 host cap006a.ast.cam.ac.uk side a GPU 0 modax 0d8b9a1bccbe9235919881f7ccdaabf2662f3fe3
+[mrun] /tmp/sh2099-disco-eb/modax-check-03/scripts/check_target.py
+python 3.10.22 modax /tmp/sh2099-disco-eb/modax-check-03/src-a/modax/__init__.py
+no modax._target: No module named 'modax._target'
+after import: CPU-target modules imported: none
+warnings at import: none
+cuda.is_available True cc ComputeCapability(major=6, minor=0)
+jax 0.6.2 [CudaDevice(id=0)]
+{'numba': '0.61.2', 'llvmlite': '0.44.0', 'numba-cuda-mlir': '0.5.4', 'numba-enzyme-cuda': '0.3.0', 'jax': '0.6.2', 'jaxlib': '0.6.2', 'numpy': '2.2.6'}
+solve ok: True True True
+after solves: CPU-target modules imported: none
+warnings during solves: none
+/tmp/sh2099-disco-eb/modax-check-03/scripts/runner.py:18: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/sh2099-disco-eb/modax-check-03/src-a/.git/HEAD' mode='r' encoding='UTF-8'>
+  head = open(os.path.join(src, ".git", "HEAD")).read().strip() if src else "?"
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[runner] modax /tmp/sh2099-disco-eb/modax-check-03/src-a/modax/__init__.py commit 0d8b9a1bccbe9235919881f7ccdaabf2662f3fe3 from MC_SRC: True
+[runner] modax._target: absent | CPU-target modules imported: none
+exit 0 after 51 s

@@ -14,7 +14,7 @@ imported by the package.
 | `run_discoeb_tests.py` | Runs DISCO-EB's own test suite on the CPU target. |
 | `make_gpu_reference.py` | Run on a CUDA machine with DISCO-EB's own environment: records P(k), histories, `solve_eb`, derivatives, thermal histories and step counts on the test suite's cosmologies. |
 | `compare_with_gpu.py` | Compares the CPU target with that record on identical inputs. Writes `results/gpu_comparison.json`. |
-| `reference/` | `cuda-check/`: see below. Also the record from DISCO-EB 2.0.1 on modax 0.3.0 on a Tesla P100 (2026-11-13), with its package list and test log. The `.npz` (14 MB) is not in git. |
+| `reference/` | `cuda-check-0.3/` and `cuda-check/`: see below. Also the record from DISCO-EB 2.0.1 on modax 0.3.0 on a Tesla P100 (2026-11-13), with its package list and test log. The `.npz` (14 MB) is not in git. |
 
 ## Two derivative engines
 
@@ -148,20 +148,25 @@ the `numba-enzyme-cuda` wheel's own tools).
 
 ## The CUDA path, checked on a GPU
 
-`reference/cuda-check/` holds a comparison of the modax 0.4 CPU-target
-branch (`ba31b7e`) with upstream `v0.4.0` on one Tesla P100, the two
-environments differing in the modax source alone. It has not been redone for
-this branch; here `test_the_source_generated_for_cuda_is_upstreams` checks,
-without a GPU, that the source generated for CUDA is v0.3.0's. On 0.4:
+`reference/cuda-check-0.3/` holds a comparison of this branch (`30a2be3`)
+with upstream `v0.3.0` on one Tesla P100 (2026-11-16), one interpreter with
+the modax source chosen by `PYTHONPATH`:
 
-- the branch selects the CUDA target, and its `cuda`, `types` and dispatcher
-  class are numba-cuda-mlir's own objects;
-- every test present in both has the same outcome (216 passed, 2 failed, 2
-  skipped in each; `tests/test_cpu_target.py` skips on CUDA);
-- 126 output arrays of 33 solves are bitwise identical, step counts included;
-- the generated hierarchy kernel source is byte-identical for six
-  hierarchies;
-- warm solve times are within run-to-run scatter.
+- the branch selects the CUDA target, its `cuda`, `types` and dispatcher
+  class are numba-cuda-mlir's own objects, and `modax._enzyme_cpu` is never
+  imported (`modax._differences` is, and is not used);
+- every test present in both has the same outcome (189 passed, 2 failed in
+  each; `tests/test_cpu_target.py` and `tests/test_enzyme_cpu.py` skip on
+  CUDA, `test_the_source_generated_for_cuda_is_upstreams` among them);
+- 197 output arrays of 57 solves are bitwise identical, step counts included;
+- the generated source is byte-identical for 14 cases (28 files: hierarchy
+  kernels and device functions);
+- warm solve times are within run-to-run scatter;
+- DISCO-EB 2.0.1's suite on the branch's CUDA path has the outcomes of
+  `reference/pytest_full_2.0.1.txt` test for test (73 passed, 1 failed).
+
+`reference/cuda-check/` is the same comparison for the modax 0.4 CPU-target
+branch (`ba31b7e`) against `v0.4.0`, made before this branch had Enzyme.
 
 Two limits. That card needs a sandbox, Python 3.10, CUDA 12, a newer
 numba-cuda-mlir and a patched Enzyme capability check, so this says nothing

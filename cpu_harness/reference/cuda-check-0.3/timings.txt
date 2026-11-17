@@ -1,0 +1,12 @@
+Warm solve wall time, 4096 trajectories, GPU 0 (P100), alternating a,b x3 (19:00-19:05 2026-11-16), 7 warm reps per run.
+
+| case | side | per-run medians (ms) | min over runs (ms) | median of all 21 (ms) |
+|---|---|---|---|---|
+| lorenz4096_tsit5 | a | 2.69 / 2.74 / 2.78 | 2.56 | 2.73 |
+| lorenz4096_tsit5 | b | 2.75 / 2.67 / 2.63 | 2.55 | 2.69 |
+| rob4096_rodas5p_fp32 | a | 2.77 / 2.83 / 2.80 | 2.60 | 2.80 |
+| rob4096_rodas5p_fp32 | b | 2.74 / 2.75 / 2.74 | 2.56 | 2.74 |
+| rob4096_rodas5p_fp64 | a | 3.85 / 3.92 / 3.93 | 3.82 | 3.93 |
+| rob4096_rodas5p_fp64 | b | 3.89 / 3.94 / 3.96 | 3.81 | 3.93 |
+| rob4096_rodas5p_fp64_jvp | a | 12.64 / 12.58 / 12.53 | 12.37 | 12.56 |
+| rob4096_rodas5p_fp64_jvp | b | 12.52 / 12.51 / 12.37 | 12.25 | 12.47 |
