@@ -35,3 +35,30 @@ def install() -> None:
     sys.modules["numba_cuda_mlir"] = package
     sys.modules["numba_cuda_mlir.cuda"] = _target.cuda
     sys.modules["numba_cuda_mlir.types"] = _target.types
+    _declare_direction_parameter()
+
+
+def _declare_direction_parameter() -> None:
+    """Tell the finite differences how large DISCO-EB's ``eps`` is.
+
+    DISCO-EB 2.0.x differentiates along a direction of its inputs: the model
+    reads each as ``x + eps * dir_x`` at ``eps = 0``. A difference along
+    ``eps`` needs a step small beside the inputs it moves, which run from the
+    densities (about 1e-8) to ``H0``, and nothing in a zero says so. A DISCO-EB
+    without these columns needs no declaration, and a modax without
+    ``set_directed_parameter`` (0.4 and later) cannot take one.
+    """
+    from modax import _differences
+
+    if not hasattr(_differences, "set_directed_parameter"):
+        return
+    try:
+        from discoeb import perturbations as P
+
+        columns = (P.IX_EPS, P.IX_DIR, tuple(P.DIRECTED_COLUMNS))
+    except (ImportError, AttributeError):
+        return
+    eps, first_direction, targets = columns
+    _differences.set_directed_parameter(
+        eps, tuple(first_direction + i for i in range(len(targets))), targets
+    )
