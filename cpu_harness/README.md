@@ -81,9 +81,10 @@ and 0.5 the interpreter is the toolchain's `venv/bin/python` where that
 exists, with `MODAX_ENZYME_TOOLS` set to the toolchain; otherwise, and with
 `--modax 0.4`, the numba 0.68 environment. `DISCO_PYTHON` overrides either.
 The banner says which engine ran, e.g. `disco: modax 0.5.0 (abc1234, cpu,
-enzyme derivatives, numba 0.61.2), ...`. `--modax 0.4` runs the chosen
-checkout's own `cpu_harness/disco_run.py`, which the 0.4 worktree does not
-have, so it fails there as it does from the 0.3 launcher.
+enzyme derivatives, numba 0.61.2), ...`. Whichever modax runs, it is this
+directory's `disco_run.py` and `discoeb_cpu.py` that start it (the 0.4
+checkout has neither; the 0.3 launcher runs the chosen checkout's own and
+so fails for 0.4).
 
 By hand, with an environment that has modax's dependencies without
 numba-CUDA (see the README's Development section), plus `pytest`,

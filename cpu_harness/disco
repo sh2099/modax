@@ -63,4 +63,6 @@ done
 
 export PYTHONPATH="$modax:$modax/cpu_harness:$eb/src${cmb:+:$cmb/src}${PYTHONPATH:+:$PYTHONPATH}"
 export DISCO_MODAX="$version"
-exec "$python" "$modax/cpu_harness/disco_run.py" "$@"
+# This directory's disco_run.py (and so its discoeb_cpu.py, first on the
+# script's path) whichever modax runs: the 0.4 checkout has neither.
+exec "$python" "$here/disco_run.py" "$@"
