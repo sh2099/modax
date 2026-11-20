@@ -48,6 +48,7 @@ derivatives of lower accuracy with no warning. On CUDA none of this applies.
 
 from __future__ import annotations
 
+import math
 from typing import Callable
 
 import numpy as np
@@ -60,6 +61,10 @@ FIRST_ORDER_STEP = _EPS ** (1.0 / 3.0)
 """Relative step of a central first difference."""
 SECOND_ORDER_STEP = _EPS**0.25
 """Relative step of a second difference."""
+SHRINK_ATTEMPTS = 8
+"""How many times a second difference shortens its steps to get off a non-finite corner."""
+SHRINK_FACTOR = 0.125
+"""By how much, each time."""
 SMALL_COMPONENT = 1.0e-3
 """A state below this fraction of the largest is stepped as if it were this large (first order)."""
 
@@ -269,6 +274,33 @@ def difference_second_tangent(
             out[j] += weight * values[j]
 
     @cuda.jit(device=True)
+    def curvature(out, y, t, p, u_y, u_t, u_p, v_y, v_t, a, a_p, b, same):
+        """``D2f[u, v]`` into ``out`` from steps ``a`` and ``a_p`` along ``u`` and ``b`` along ``v``; whether it is finite."""
+        for j in range(n_out):
+            out[j] = 0.0
+        if a > 0.0 and same:
+            weight = 1.0 / (b * b)
+            corner(out, weight, y, t, p, 0.0, u_y, u_t, 0.0, u_p, b, v_y, v_t)
+            corner(out, -2.0 * weight, y, t, p, 0.0, u_y, u_t, 0.0, u_p, 0.0, v_y, v_t)
+            corner(out, weight, y, t, p, 0.0, u_y, u_t, 0.0, u_p, -b, v_y, v_t)
+        elif a > 0.0:
+            weight = 0.25 / (a * b)
+            corner(out, weight, y, t, p, a, u_y, u_t, 0.0, u_p, b, v_y, v_t)
+            corner(out, -weight, y, t, p, a, u_y, u_t, 0.0, u_p, -b, v_y, v_t)
+            corner(out, -weight, y, t, p, -a, u_y, u_t, 0.0, u_p, b, v_y, v_t)
+            corner(out, weight, y, t, p, -a, u_y, u_t, 0.0, u_p, -b, v_y, v_t)
+        if a_p > 0.0:
+            weight = 0.25 / (a_p * b)
+            corner(out, weight, y, t, p, 0.0, u_y, u_t, a_p, u_p, b, v_y, v_t)
+            corner(out, -weight, y, t, p, 0.0, u_y, u_t, a_p, u_p, -b, v_y, v_t)
+            corner(out, -weight, y, t, p, 0.0, u_y, u_t, -a_p, u_p, b, v_y, v_t)
+            corner(out, weight, y, t, p, 0.0, u_y, u_t, -a_p, u_p, -b, v_y, v_t)
+        for j in range(n_out):
+            if not math.isfinite(out[j]):
+                return False
+        return True
+
+    @cuda.jit(device=True)
     def second(out, y, t, p, u_y, u_t, u_p, v_y, v_t, v_p, w_y, w_t, w_p):
         floor = max(largest_of(y), driver_column(p, 0))
         time_scale = driver_column(p, 1)
@@ -280,26 +312,18 @@ def difference_second_tangent(
             same = u_t == v_t
             for j in range(n_vars):
                 same = same and u_y[j] == v_y[j]
-            if a > 0.0 and same:
-                weight = 1.0 / (b * b)
-                corner(out, weight, y, t, p, 0.0, u_y, u_t, 0.0, u_p, b, v_y, v_t)
-                corner(
-                    out, -2.0 * weight, y, t, p, 0.0, u_y, u_t, 0.0, u_p, 0.0, v_y, v_t
-                )
-                corner(out, weight, y, t, p, 0.0, u_y, u_t, 0.0, u_p, -b, v_y, v_t)
-            elif a > 0.0:
-                weight = 0.25 / (a * b)
-                corner(out, weight, y, t, p, a, u_y, u_t, 0.0, u_p, b, v_y, v_t)
-                corner(out, -weight, y, t, p, a, u_y, u_t, 0.0, u_p, -b, v_y, v_t)
-                corner(out, -weight, y, t, p, -a, u_y, u_t, 0.0, u_p, b, v_y, v_t)
-                corner(out, weight, y, t, p, -a, u_y, u_t, 0.0, u_p, -b, v_y, v_t)
             a_p = param_step(p, u_p, delta)
-            if a_p > 0.0:
-                weight = 0.25 / (a_p * b)
-                corner(out, weight, y, t, p, 0.0, u_y, u_t, a_p, u_p, b, v_y, v_t)
-                corner(out, -weight, y, t, p, 0.0, u_y, u_t, a_p, u_p, -b, v_y, v_t)
-                corner(out, -weight, y, t, p, 0.0, u_y, u_t, -a_p, u_p, b, v_y, v_t)
-                corner(out, weight, y, t, p, 0.0, u_y, u_t, -a_p, u_p, -b, v_y, v_t)
+            # A corner may fall where the function is not defined (past a
+            # guard, on the far side of which it divides by zero): the steps
+            # are then shortened until every corner is on the near side.
+            shrink = 1.0
+            for _ in range(SHRINK_ATTEMPTS):
+                if curvature(
+                    out, y, t, p, u_y, u_t, u_p, v_y, v_t,
+                    a * shrink, a_p * shrink, b * shrink, same,
+                ):  # fmt: skip
+                    break
+                shrink *= SHRINK_FACTOR
 
         varies = w_t != 0.0
         for j in range(n_vars):

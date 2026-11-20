@@ -283,6 +283,26 @@ def test_the_launch_columns_are_read_at_the_rows_end():
     np.testing.assert_array_equal(joint_row[N_P : 3 * N_P], 0.0)
 
 
+def beside_a_guard(y, t, p):
+    """Defined for ``y[0] > 0`` only, beside a state a billion times larger."""
+    return (math.log(y[0]) if y[0] > 0.0 else math.nan, y[1])
+
+
+def test_a_second_difference_shortens_its_steps_off_a_non_finite_corner():
+    """Every state counts as large as the largest, so the first corners are at ``y[0] = -120``."""
+    second = difference_second_tangent(beside_a_guard, 2, 2, 0)
+    p = np.array([TYPICAL, TIME_SCALE, RTOL])
+    y = np.array([1.0e-3, 1.0e6])
+    u = (np.array([1.0, 0.0]), 0.0, np.zeros(0))
+    zero = (np.zeros(2), 0.0, np.zeros(0))
+    out = np.full(2, np.nan)
+    second(out, y, 0.5, p, *u, *u, *zero)
+    # The first steps that land inside are within a factor of eight of the
+    # guard, here 0.46 of ``y[0]``: finite, and no better than this.
+    np.testing.assert_allclose(out[0], -1.0 / y[0] ** 2, rtol=0.25)
+    assert out[1] == 0.0
+
+
 # --- the launch --------------------------------------------------------------------------
 
 
