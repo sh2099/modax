@@ -23,9 +23,10 @@ and exports the names every other module uses:
 
     ==============================  ======================================
     ``cuda.jit(device=True)``       ``numba.njit(error_model="numpy")``
-    ``cuda.local.array(n, dtype)``  ``np.zeros(n, dtype)``
+    ``cuda.local.array(n, dtype)``  a zeroed array on the stack (Enzyme),
+                                    ``np.zeros(n, dtype)`` (differences)
     ``cuda.const.array_like(a)``    ``a`` (numba freezes a closed-over array)
-    ``cuda.shared.array(s, dtype)``   ``np.zeros(s, dtype)``
+    ``cuda.shared.array(s, dtype)`` as ``cuda.local.array``
     ``cuda.blockIdx.x`` etc.        ``0``
     ``cuda.grid(1)``                ``0``
     ``cuda.ballot_sync(m, p)``      ``1 if p else 0``
@@ -33,6 +34,15 @@ and exports the names every other module uses:
     ``types``                       ``numba.types``
     ``DeviceFunction``              numba's CPU dispatcher
     ==============================  ======================================
+
+``CPU_DERIVATIVES``
+    How the CPU target differentiates a user's function: ``"enzyme"`` or
+    ``"differences"`` (on CUDA always ``"enzyme"``). ``MODAX_CPU_DERIVATIVES``
+    chooses: ``auto`` (the default) is Enzyme where it can run
+    ([`modax._enzyme_cpu`][]: numba 0.61, ``numba-enzyme-cuda`` and the LLVM
+    15 tools with the Enzyme plugin) and finite differences, with one
+    warning saying why, where it cannot; ``enzyme`` insists and fails at
+    import without it; ``differences`` never tries. CUDA does not read it.
 
 A kernel finds its trajectory from its thread's index (``cuda.blockIdx``,
 ``cuda.threadIdx``, ``cuda.grid``) and, in the hierarchy kernel, votes with the
@@ -43,21 +53,24 @@ zero, a ballot is the lane's own predicate, and the kernels' source is the
 same text on both targets. :func:`ensemble_driver` makes those calls from a
 parallel loop.
 
-On the CPU there is no Enzyme (it has no macOS build), so every derivative of
-a user's function is a finite difference: the Jacobian in
-``modax/rodas5P.py`` (``_make_difference_jacobian``) and the directional
-derivatives the forward sensitivities are built from in
-[`modax._differences`][]. They are accurate to rounding over a step, not to
-rounding, and they cannot see past a switch in the function the way a
-derivative does; both modules say what that costs.
+With Enzyme the CPU target's derivatives are those of CUDA: the kernels take
+the CUDA branch's Jacobian writer (``_make_literal_seed_jacobian`` in
+``modax/_rodas5P.py``, one direction a sweep) and its forward sweeps, built by
+[`modax._enzyme_cpu`][] instead of ``numba_enzyme.jvp``. With finite
+differences the Jacobian is ``make_difference_jacobian`` in
+``modax/_rodas5P.py`` and the sweeps are [`modax._differences`][]: accurate to
+rounding over a step, not to rounding, and unable to see past a switch in the
+function the way a derivative does; both modules say what that costs.
 """
 
 from __future__ import annotations
 
 import importlib.util
+import math
 import os
 import sys
 import types as _pytypes
+import warnings
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import numpy as np
@@ -65,6 +78,7 @@ import numpy as np
 _ENV_VAR = "MODAX_TARGET"
 _SERIAL_ENV_VAR = "MODAX_SERIAL"
 _POISON_ENV_VAR = "MODAX_POISON"
+_DERIVATIVES_ENV_VAR = "MODAX_CPU_DERIVATIVES"
 
 
 def _missing_cuda_packages() -> list[str]:
@@ -114,6 +128,41 @@ TARGET: Literal["cuda", "cpu"] = _choose()
 """The device the kernels are compiled for."""
 
 
+def _choose_derivatives(target: str) -> Literal["enzyme", "differences"]:
+    requested = os.environ.get(_DERIVATIVES_ENV_VAR, "auto").strip().lower()
+    if requested not in ("auto", "enzyme", "differences"):
+        raise ValueError(
+            f"{_DERIVATIVES_ENV_VAR} must be 'auto', 'enzyme' or 'differences'; "
+            f"got {requested!r}"
+        )
+    if target == "cuda":
+        return "enzyme"
+    if requested == "differences":
+        return "differences"
+    from modax._enzyme_cpu import unavailable
+
+    reason = unavailable()
+    if reason is None:
+        return "enzyme"
+    if requested == "enzyme":
+        raise ImportError(
+            f"{_DERIVATIVES_ENV_VAR}=enzyme, but Enzyme cannot run on the CPU here: "
+            f"{reason}. See modax/_enzyme_cpu.py and cpu_harness/README.md."
+        )
+    warnings.warn(
+        f"modax: Enzyme cannot run on the CPU target here ({reason}); its "
+        "derivatives are finite differences. "
+        f"{_DERIVATIVES_ENV_VAR}=differences chooses them without this warning.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    return "differences"
+
+
+CPU_DERIVATIVES: Literal["enzyme", "differences"] = _choose_derivatives(TARGET)
+"""How a user's function is differentiated; ``"enzyme"`` on CUDA."""
+
+
 def _cpu_namespace() -> tuple[Any, Any, Any, Any, Any]:
     """The CPU meanings of ``cuda``, ``types``, ``DeviceFunction``, ``Type``, ``Signature``."""
     from numba import njit
@@ -127,7 +176,16 @@ def _cpu_namespace() -> tuple[Any, Any, Any, Any, Any]:
     # the thread's share of the ensemble.
     device = njit(error_model="numpy")
 
-    if os.environ.get(_POISON_ENV_VAR):
+    poison = bool(os.environ.get(_POISON_ENV_VAR))
+    if CPU_DERIVATIVES == "enzyme":
+        # On the stack, as on the device, and so outside numba's allocator,
+        # which Enzyme cannot differentiate through. Zeroed for the reason
+        # below; NaN under MODAX_POISON.
+        from modax._enzyme_cpu import make_stack_array
+
+        local_array = make_stack_array(math.nan if poison else 0.0)
+
+    elif poison:
         # For finding a read of a local array before it is written: every one
         # starts as NaN, which then shows in whatever read it.
         @device
@@ -259,9 +317,11 @@ def ensemble_driver(kernel: Any) -> Callable[..., None]:
 
     The parameter row is a copy with :data:`N_DRIVER_COLUMNS` more columns
     than the kernel was built for. A right-hand side reads only its own
-    columns; the finite-difference Jacobian (``modax/_rodas5P.py``) reads the
-    ones after them, which it has no other way to be told without the kernels'
-    source differing between the targets:
+    columns; the finite differences (``make_difference_jacobian`` in
+    ``modax/_rodas5P.py``, :mod:`modax._differences`) read the ones after
+    them, which they have no other way to be told without the kernels' source
+    differing between the targets. Enzyme reads none of them; they are
+    appended whichever engine runs:
 
     * ``atol / rtol``, the size at which the two tolerances meet, as the
       typical size of a state that is zero or far below it;

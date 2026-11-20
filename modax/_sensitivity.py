@@ -68,11 +68,20 @@ from modax._differences import difference_second_tangent, difference_tangent
 from modax._jax_numba_custom_call import compile_target
 from modax._numba_common import OdeFn, SolverStats, as_cuda_device
 from modax._params import combine_params
-from modax._target import TARGET, Signature, cuda, device_return_type, types
+from modax._target import (
+    CPU_DERIVATIVES,
+    TARGET,
+    Signature,
+    cuda,
+    device_return_type,
+    types,
+)
 from modax._target import DeviceFunction as MLIRDispatcher
 
 if TARGET == "cuda":
     from numba_enzyme import jvp
+elif CPU_DERIVATIVES == "enzyme":
+    from modax import _enzyme_cpu
 
 Tangent = Callable[..., None]
 """An Enzyme forward sweep: ``(out, *args, *directions)``, writing ``out``."""
@@ -224,6 +233,8 @@ def make_second_tangent(ode_fn: OdeFn, n_vars: int, n_params: int) -> Tangent:
 def make_quantity_tangent(fn, n_outputs: int, n_vars: int, n_params: int) -> Tangent:
     """``D q(y, t, p)[u]`` for a quantity function of ``n_outputs`` values of ``n_vars`` states."""
     if TARGET == "cpu":
+        if CPU_DERIVATIVES == "enzyme":
+            return _enzyme_cpu.make_tangent(fn, n_outputs)
         return difference_tangent(fn, n_outputs, n_vars, n_params)
     # For the kernel's own target (compile_target), so the two link on Blackwell.
     return jvp(
@@ -239,6 +250,8 @@ def make_quantity_second_tangent(
 ) -> Tangent:
     """``D2 q[u, v] + D q[w]`` for a quantity function, forward over forward as :func:`make_second_tangent`."""
     if TARGET == "cpu":
+        if CPU_DERIVATIVES == "enzyme":
+            return _enzyme_cpu.make_second_tangent(fn, n_outputs)
         return difference_second_tangent(fn, n_outputs, n_vars, n_params)
     signature = _quantity_signature(n_outputs, n_vars, n_params)
     cc = compile_target()
@@ -408,6 +421,8 @@ def clear_caches() -> None:
     make_augmented_local_writer.cache_clear()
     quantity_hook.cache_clear()
     quantity_count.cache_clear()
+    if TARGET == "cpu" and CPU_DERIVATIVES == "enzyme":
+        _enzyme_cpu.clear_caches()
 
 
 def augmented_y0(y0_arr: jax.Array, spec: SensitivitySpec) -> jax.Array:

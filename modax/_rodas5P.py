@@ -31,7 +31,7 @@ from modax._sensitivity import (
 )
 from modax._sparse_direct import sparse_direct_solver_for
 from modax._sparsity import CompressedJacobian, Pattern, dense_jacobian
-from modax._target import N_DRIVER_COLUMNS, TARGET, cuda, types
+from modax._target import CPU_DERIVATIVES, N_DRIVER_COLUMNS, TARGET, cuda, types
 from modax._target import DeviceFunction as MLIRDispatcher
 
 
@@ -635,7 +635,7 @@ def make_kernel(
     # this kernel at the register cap with a 13 KB spill frame. Several seeds
     # go into each call (SEED_BATCH) so the sweeps' shared primal is computed
     # once, and the stores are literal too, one per entry the colour holds.
-    if TARGET == "cpu":
+    if TARGET == "cpu" and CPU_DERIVATIVES == "differences":
         write_negated_jacobian = make_difference_jacobian(
             ode_write=make_cuda_local_vector_writer(ode_fn, n_vars),
             structure=structure,
@@ -659,6 +659,8 @@ def make_kernel(
                 clear_matrix=clear_matrix,
                 lu_dtype=lu_dtype,
             ),
+            # one direction a sweep where Enzyme's CPU entry takes one
+            batch=1 if TARGET == "cpu" else None,
         )
 
     # --- one Rosenbrock stage, state row plus any sensitivity rows -----------
