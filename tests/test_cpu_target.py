@@ -116,7 +116,6 @@ def test_difference_jacobian_matches_autodiff(layout):
         clear_matrix=clear,
         lu_dtype=np.float64,
         n_params=N_P,
-        context=N_P,
     )
     lu = np.full(structure.size, np.nan)
     dT = np.full(N, np.nan)
@@ -146,7 +145,6 @@ def test_difference_jacobian_gives_the_rate_along_a_parameter_seed():
         clear_matrix=clear,
         lu_dtype=np.float64,
         n_params=N_P,
-        context=N_P,
         coupling=2,
     )
     seeds = np.array([[1.0e-9, 0.0, 3.0e-9], [0.0, 0.0, 0.0]])
@@ -257,6 +255,32 @@ def test_grouped_parameters_are_sized_by_the_largest_of_the_group():
         out, y, 0.5, p, np.zeros(2), 0.0, dp
     )
     assert abs(out[0] - exact[0]) > 1e-3
+
+
+def test_the_launch_columns_are_read_at_the_rows_end():
+    """A joint launch's row holds a ``dp`` per direction between the parameters and them.
+
+    Zeros there, the worst case: read as the launch's columns they would be a
+    zero floor and a zero time scale. The sweeps must give what they give on
+    the plain row, and must not move the ``dp`` entries.
+    """
+    directions = np.zeros(2 * N_P)
+    joint_row = np.concatenate([P, directions, [TYPICAL, TIME_SCALE, RTOL]])
+    zero = (np.zeros(N), 0.0, np.zeros(N_P))
+    for name in ("state", "time", "parameters", "all"):
+        plain = np.full(N, np.nan)
+        joint = np.full(N, np.nan)
+        difference_tangent(chain, N, N, N_P)(plain, Y, T, row(P), *DIRECTIONS[name])
+        difference_tangent(chain, N, N, N_P)(joint, Y, T, joint_row, *DIRECTIONS[name])
+        np.testing.assert_array_equal(joint, plain)
+        difference_second_tangent(chain, N, N, N_P)(
+            plain, Y, T, row(P), *DIRECTIONS[name], *DIRECTIONS["flow"], *zero
+        )
+        difference_second_tangent(chain, N, N, N_P)(
+            joint, Y, T, joint_row, *DIRECTIONS[name], *DIRECTIONS["flow"], *zero
+        )
+        np.testing.assert_array_equal(joint, plain)
+    np.testing.assert_array_equal(joint_row[N_P : 3 * N_P], 0.0)
 
 
 # --- the launch --------------------------------------------------------------------------
@@ -390,6 +414,113 @@ def test_a_cpu_stand_in_is_not_numba_cuda(monkeypatch):
     stand_in.__cpu_shim__ = True
     monkeypatch.setitem(sys.modules, "numba_cuda_mlir", stand_in)
     assert "numba_cuda_mlir" in _target._missing_cuda_packages()
+
+
+# The cascade of tests/test_sensitivity.py, differentiated with the finite
+# differences whichever engine this process chose: the derivatives a joint
+# launch takes on the plain kernels, against the closed form. Its directions
+# have zeros in their first dp entries, which the sweeps once read as the
+# launch's appended columns (a zero floor and time scale).
+_DIFFERENCED_CASCADE = """
+import json
+import jax
+import jax.numpy as jnp
+import numpy as np
+from modax import Rodas5P, Tsit5, _target, solve
+from tests.test_sensitivity import A, B, T_SPAN, Y0, cascade
+
+jax.config.update("jax_enable_x64", True)
+p = jnp.asarray([A, B])
+y0 = jnp.asarray(Y0)
+errors = {"engine": _target.CPU_DERIVATIVES}
+for name, method in (("rodas5P", Rodas5P(lu_precision="fp64")), ("tsit5", Tsit5())):
+    def final(y, q):
+        return solve(cascade, y, T_SPAN, q, rtol=1e-10, atol=1e-12, method=method)[0]
+    for label, dy, dq in (
+        ("b", jnp.zeros(2), jnp.asarray([0.0, 1.0])),
+        ("c0", jnp.asarray([1.0, 0.0]), jnp.zeros(2)),
+        ("c1", jnp.asarray([0.0, 1.0]), jnp.zeros(2)),
+    ):
+        value, tangent = jax.jvp(final, (y0, p), (dy, dq))
+        errors[name + "/" + label] = [np.asarray(value).tolist(), np.asarray(tangent).tolist()]
+print(json.dumps(errors))
+"""
+
+
+def test_differenced_joint_solves_on_the_plain_kernels_match_the_closed_form():
+    """Rodas5P and Tsit5 tangents along one parameter or one initial state, by differences."""
+    import json
+
+    from tests.test_sensitivity import (
+        T_SPAN,
+        Y0,
+        A,
+        B,
+        cascade_dparams,
+        cascade_dy0,
+        cascade_exact,
+    )
+
+    env = dict(
+        os.environ, MODAX_TARGET="cpu", MODAX_CPU_DERIVATIVES="differences",
+        JAX_PLATFORMS="cpu",
+    )  # fmt: skip
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env["PYTHONPATH"] = os.pathsep.join(
+        [root, *filter(None, [os.environ.get("PYTHONPATH")])]
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", _DIFFERENCED_CASCADE],
+        env=env, cwd=root, capture_output=True, text=True, timeout=900,
+    )  # fmt: skip
+    assert done.returncode == 0, done.stderr
+    got = json.loads(done.stdout.strip().splitlines()[-1])
+    assert got.pop("engine") == "differences"
+    value = cascade_exact(T_SPAN, Y0, (A, B))
+    exact = {
+        "b": cascade_dparams(T_SPAN, Y0, (A, B))[..., 1],
+        "c0": cascade_dy0(T_SPAN, Y0, (A, B))[..., 0],
+        "c1": cascade_dy0(T_SPAN, Y0, (A, B))[..., 1],
+    }
+    for key, (primal, tangent) in got.items():
+        np.testing.assert_allclose(primal, value, rtol=1e-7, atol=1e-9, err_msg=key)
+        np.testing.assert_allclose(
+            tangent, exact[key.split("/")[1]], rtol=1e-6, atol=1e-8, err_msg=key
+        )
+
+
+@pytest.mark.parametrize("per_thread, copies", [(2, 2), (1, 3)])
+def test_hierarchy_directions_spread_over_replicas(per_thread, copies, monkeypatch):
+    """``max_directions_per_thread`` on the hierarchy kernel, the CPU's way.
+
+    Three directions (each parameter column scaled) of two trajectories: with
+    ``k`` a thread each trajectory runs as ``ceil(3 / k)`` copies, the last
+    padded with zero directions. The tangents are those of one thread
+    carrying all three.
+    """
+    from tests.test_hierarchy import CHAIN, T_SPAN, TOL, Y0, P
+    from tests.test_sensitivity import _launches
+
+    def final(per):
+        def at(theta):
+            return solve(
+                CHAIN, Y0, T_SPAN, P * theta,
+                max_directions_per_thread=per, **TOL,
+            )  # fmt: skip
+
+        return at
+
+    reference = jax.jacfwd(final(None))(jnp.ones(3))
+    seen = _launches(monkeypatch)
+    spread = jax.jacfwd(final(per_thread))(jnp.ones(3))
+    n, spec = seen[-1]
+    assert n == 2 * copies and spec.n_sens == per_thread
+    # as tests/test_sensitivity.py's replicas of a plain solve: the copies'
+    # step control sees fewer sensitivities, so the steps differ
+    np.testing.assert_allclose(
+        np.asarray(spread), np.asarray(reference), rtol=1e-6, atol=1e-8
+    )
+    assert np.abs(np.asarray(reference)).max() > 1e-3
 
 
 # --- which derivatives the CPU target takes ----------------------------------------------

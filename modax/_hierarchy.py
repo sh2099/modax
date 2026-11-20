@@ -1321,7 +1321,6 @@ def _block_functions(
             clear_matrix=clear,
             lu_dtype=lu_dtype,
             n_params=P_LOCAL,
-            context=P_LOCAL,
             coupling=n_reads,
             slot_of=slots.slot,
             groups=tuple(groups),

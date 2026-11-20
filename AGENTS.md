@@ -799,7 +799,11 @@ module imports from it; on CUDA they are numba-cuda-mlir's own.
   of a state or a time near zero. Enzyme reads none of them; they are
   appended under either engine so the kernels are the same. The hierarchy
   kernel copies them to the end of its local row, the one place its
-  generated text depends on the target.
+  generated text depends on the target. They are read from the end of the
+  row (`_differences.driver_column`), never at `p[n_params + c]`: a joint
+  launch's row holds a `dp` per direction after the parameters, and the
+  hierarchy's local row its Hermite slots. A difference copies the whole
+  row and moves only the parameters; the `dp` entries are data.
 - **The six Hermite coefficients of a quantity are sized together**
   (`set_parameter_groups`): a quantity's value passes through zero while its
   other coefficients do not. Only the differences read it.

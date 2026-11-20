@@ -14,7 +14,7 @@ import numpy as np
 import numpy.typing as npt
 
 from modax._codegen import compile_device_source
-from modax._differences import step_rules
+from modax._differences import driver_column, step_rules
 from modax._numba_common import (
     OdeFn,
     as_cuda_device,
@@ -31,7 +31,7 @@ from modax._sensitivity import (
 )
 from modax._sparse_direct import sparse_direct_solver_for
 from modax._sparsity import CompressedJacobian, Pattern, dense_jacobian
-from modax._target import CPU_DERIVATIVES, N_DRIVER_COLUMNS, TARGET, cuda, types
+from modax._target import CPU_DERIVATIVES, TARGET, cuda, types
 from modax._target import DeviceFunction as MLIRDispatcher
 
 
@@ -303,7 +303,6 @@ def make_difference_jacobian(
     clear_matrix: MLIRDispatcher,
     lu_dtype: type,
     n_params: int,
-    context: int,
     coupling: int = 0,
     slot_of: Callable[[int, int], int] | None = None,
     groups: tuple[int, ...] | None = None,
@@ -340,10 +339,12 @@ def make_difference_jacobian(
     and a looser solve is where a cheaper right-hand side is likely.
 
     ``typical``, the time ``scale`` and ``rtol`` are not arguments, so that
-    the kernels call this writer as they call Enzyme's. They are read from
-    the parameter row at ``context`` onwards, where the CPU launch puts
+    the kernels call this writer as they call Enzyme's. They are the last
+    three entries of the parameter row, where the CPU launch puts
     ``atol / rtol``, the first step and ``rtol``
-    (:py:obj:`ensemble_driver <modax._target.ensemble_driver>`).
+    (:py:obj:`ensemble_driver <modax._target.ensemble_driver>`,
+    :py:obj:`driver_column <modax._differences.driver_column>`): a joint
+    launch's row holds its directions between the parameters and them.
 
     Forward differences at ``sqrt(eps)`` leave each entry with rounding noise
     of about ``1e-8`` of its size, which changes with the last digit of the
@@ -402,8 +403,8 @@ def make_difference_jacobian(
         y_moved = cuda.local.array(n_vars, types.float64)
         clear_matrix(lu)
         ode_write(y_local, t, p_row, base)
-        typical = p_row[context]
-        relative = max(_SQRT_EPS, JACOBIAN_STEP_PER_RTOL * p_row[context + 2])
+        typical = driver_column(p_row, 0)
+        relative = max(_SQRT_EPS, JACOBIAN_STEP_PER_RTOL * driver_column(p_row, 2))
         for j in range(n_vars):
             y_moved[j] = y_local[j]
         for g in range(n_colours):
@@ -429,7 +430,7 @@ def make_difference_jacobian(
                 if finite:
                     break
                 sign = -1.0
-        t_moved = t + relative * max(abs(t), p_row[context + 1])
+        t_moved = t + relative * max(abs(t), driver_column(p_row, 1))
         ode_write(y_local, t_moved, p_row, moved)
         for j in range(n_vars):
             dT[j] = (moved[j] - base[j]) / (t_moved - t)
@@ -448,9 +449,10 @@ def make_difference_jacobian(
         base = cuda.local.array(n_vars, types.float64)
         ahead = cuda.local.array(n_vars, types.float64)
         behind = cuda.local.array(n_vars, types.float64)
-        p_moved = cuda.local.array(n_params + N_DRIVER_COLUMNS, types.float64)
+        # the whole row, the launch's columns at its end included
+        p_moved = cuda.local.array(p_row.shape[0], types.float64)
         write_state_and_time(y_local, t, p_row, lu, dT, base)
-        for j in range(n_params + N_DRIVER_COLUMNS):
+        for j in range(p_row.shape[0]):
             p_moved[j] = p_row[j]
         for k in range(coupling):
             h = param_step(p_row, p_seed[k], _CBRT_EPS)
@@ -643,7 +645,6 @@ def make_kernel(
             clear_matrix=clear_matrix,
             lu_dtype=lu_dtype,
             n_params=n_params,
-            context=n_params,
         )
     else:
         write_negated_jacobian = _make_literal_seed_jacobian(

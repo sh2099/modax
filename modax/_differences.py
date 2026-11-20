@@ -20,9 +20,12 @@ for its own variables:
   the others, or below the size at which the solve's absolute tolerance takes
   over from the relative one, is counted as that large, and time near zero as
   large as the solve's first step. The last two come from the launch, in the
-  two columns it appends to the parameter row
+  columns it appends to the parameter row
   (:py:obj:`ensemble_driver <modax._target.ensemble_driver>`), so ``p`` here
-  is always that row or a copy that keeps them;
+  is always that row or a copy that keeps them. They are read from the
+  row's end (:func:`driver_column`), not after the function's own
+  parameters: a joint launch's row holds a ``dp`` per direction between the
+  two, and the hierarchy's local row its Hermite slots;
 * the parameter part moves no parameter by more than ``delta |p_j|``. A
   parameter that is exactly zero has no size of its own and is counted as the
   smallest nonzero one the direction touches: small enough not to disturb
@@ -59,6 +62,12 @@ SECOND_ORDER_STEP = _EPS**0.25
 """Relative step of a second difference."""
 SMALL_COMPONENT = 1.0e-3
 """A state below this fraction of the largest is stepped as if it were this large (first order)."""
+
+
+@cuda.jit(device=True)
+def driver_column(p, c):
+    """Column ``c`` of those the launch appended, which end every row ``p`` it hands down."""
+    return p[p.shape[0] - N_DRIVER_COLUMNS + c]
 
 
 _PARAMETER_GROUPS: dict[tuple[object, int], tuple[int, ...]] = {}
@@ -171,22 +180,22 @@ def difference_tangent(
     flow_step, param_step = step_rules(n_vars, n_params, parameter_groups(fn, n_params))
     largest_of = _largest(n_vars)
     delta = FIRST_ORDER_STEP
-    # a caller's row may carry columns past the function's own
-    p_size = n_params + N_DRIVER_COLUMNS
 
     @cuda.jit(device=True)
     def tangent(out, y, t, p, dy, dt, dp):
         y_moved = cuda.local.array(n_vars, types.float64)
-        p_moved = cuda.local.array(p_size, types.float64)
+        # The whole row: past the function's own parameters it may hold a
+        # joint launch's directions, which are data and never moved here.
+        p_moved = cuda.local.array(p.shape[0], types.float64)
         for j in range(n_vars):
             y_moved[j] = y[j]
-        for j in range(n_params):
+        for j in range(p.shape[0]):
             p_moved[j] = p[j]
         for j in range(n_out):
             out[j] = 0.0
 
-        floor = max(SMALL_COMPONENT * largest_of(y), p[n_params])
-        h = flow_step(y, t, dy, dt, floor, p[n_params + 1], delta)
+        floor = max(SMALL_COMPONENT * largest_of(y), driver_column(p, 0))
+        h = flow_step(y, t, dy, dt, floor, driver_column(p, 1), delta)
         if h > 0.0:
             for j in range(n_vars):
                 y_moved[j] = y[j] + h * dy[j]
@@ -243,15 +252,16 @@ def difference_second_tangent(
     flow_step, param_step = step_rules(n_vars, n_params, parameter_groups(fn, n_params))
     largest_of = _largest(n_vars)
     delta = SECOND_ORDER_STEP
-    p_size = n_params + N_DRIVER_COLUMNS
 
     @cuda.jit(device=True)
     def corner(out, weight, y, t, p, a, u_y, u_t, a_p, u_p, b, v_y, v_t):
         """Add ``weight * f`` at the point moved ``a`` along ``u``'s flow part, ``a_p`` along its parameters and ``b`` along ``v``."""
         y_moved = cuda.local.array(n_vars, types.float64)
-        p_moved = cuda.local.array(p_size, types.float64)
+        p_moved = cuda.local.array(p.shape[0], types.float64)
         for j in range(n_vars):
             y_moved[j] = y[j] + a * u_y[j] + b * v_y[j]
+        for j in range(p.shape[0]):
+            p_moved[j] = p[j]
         for j in range(n_params):
             p_moved[j] = p[j] + a_p * u_p[j]
         values = fn_device(y_moved, t + a * u_t + b * v_t, p_moved)
@@ -260,8 +270,8 @@ def difference_second_tangent(
 
     @cuda.jit(device=True)
     def second(out, y, t, p, u_y, u_t, u_p, v_y, v_t, v_p, w_y, w_t, w_p):
-        floor = max(largest_of(y), p[n_params])
-        time_scale = p[n_params + 1]
+        floor = max(largest_of(y), driver_column(p, 0))
+        time_scale = driver_column(p, 1)
         for j in range(n_out):
             out[j] = 0.0
         b = flow_step(y, t, v_y, v_t, floor, time_scale, delta)
