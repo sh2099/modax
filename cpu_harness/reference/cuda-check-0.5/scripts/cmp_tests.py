@@ -1,12 +1,12 @@
 """Per-test comparison of two pytest -rA logs. Usage: cmp_tests.py LOG_A LOG_B"""
 
-import re, sys
+import re
+import sys
 from collections import Counter
 
 
 def outcomes(path):
     res = {}
-    pat = re.compile(r"^(PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\s+(\S+)")
     verbose = re.compile(
         r"^(tests/\S+::\S.*?)\s+(PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\b"
     )

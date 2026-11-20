@@ -119,9 +119,19 @@ def _():
 @case("rob_jvp_params_fp64")
 def _():
     dp = jnp.asarray(ROB_P[:8]) * 0.01
-    f = lambda p: solve(
-        rob, ROB_Y0[:8], ROB_T, p, method=F64, rtol=1e-8, atol=1e-10, return_stats=True
-    )  # noqa: E731
+
+    def f(p):
+        return solve(
+            rob,
+            ROB_Y0[:8],
+            ROB_T,
+            p,
+            method=F64,
+            rtol=1e-8,
+            atol=1e-10,
+            return_stats=True,
+        )
+
     (h, s), (dh, _) = jax.jvp(f, (jnp.asarray(ROB_P[:8]),), (dp,))
     return {"primal": h, "tangent": dh, "stats": s}
 
@@ -129,29 +139,37 @@ def _():
 @case("rob_jvp_params_noerrctl")
 def _():
     dp = jnp.asarray(ROB_P[:8]) * jnp.array([0.01, 0.0, -0.02])
-    f = lambda p: solve(
-        rob,
-        ROB_Y0[:8],
-        ROB_T,
-        p,
-        method=F64,
-        rtol=1e-8,
-        atol=1e-10,
-        sens_error_control=False,
-    )  # noqa: E731
+
+    def f(p):
+        return solve(
+            rob,
+            ROB_Y0[:8],
+            ROB_T,
+            p,
+            method=F64,
+            rtol=1e-8,
+            atol=1e-10,
+            sens_error_control=False,
+        )
+
     return jax.jvp(f, (jnp.asarray(ROB_P[:8]),), (dp,))
 
 
 @case("rob_jvp_y0_fp32")
 def _():
     dy = jnp.ones((8, 3)) * jnp.array([1.0, 0.5, -0.25])
-    f = lambda y: solve(rob, y, ROB_T, ROB_P[:8], rtol=1e-6, atol=1e-8)  # noqa: E731
+
+    def f(y):
+        return solve(rob, y, ROB_T, ROB_P[:8], rtol=1e-6, atol=1e-8)
+
     return jax.jvp(f, (jnp.asarray(ROB_Y0[:8]),), (dy,))
 
 
 @case("rob_jacfwd_params_one")
 def _():
-    f = lambda p: solve(rob, ROB_Y0[0], ROB_T, p, method=F64, rtol=1e-8, atol=1e-10)  # noqa: E731
+    def f(p):
+        return solve(rob, ROB_Y0[0], ROB_T, p, method=F64, rtol=1e-8, atol=1e-10)
+
     return jax.jacfwd(f)(jnp.asarray(ROB_P[0]))
 
 
@@ -199,32 +217,36 @@ for backend in ("local", "shared"):
 
 @case("lorenz_tsit5_jvp_params")
 def _():
-    f = lambda p: solve(
-        lorenz,
-        LOR_Y0[:8],
-        np.linspace(0.0, 1.0, 5),
-        p,
-        method=Tsit5(),
-        rtol=1e-8,
-        atol=1e-10,
-        return_stats=True,
-    )  # noqa: E731
+    def f(p):
+        return solve(
+            lorenz,
+            LOR_Y0[:8],
+            np.linspace(0.0, 1.0, 5),
+            p,
+            method=Tsit5(),
+            rtol=1e-8,
+            atol=1e-10,
+            return_stats=True,
+        )
+
     (h, s), (dh, _) = jax.jvp(f, (jnp.asarray(LOR_P[:8]),), (jnp.ones((8, 1)),))
     return {"primal": h, "tangent": dh, "stats": s}
 
 
 @case("lorenz_tsit5_jacfwd_y0_per_thread_1")
 def _():
-    f = lambda y: solve(
-        lorenz,
-        y,
-        np.linspace(0.0, 1.0, 5),
-        LOR_P[0],
-        method=Tsit5(),
-        rtol=1e-8,
-        atol=1e-10,
-        max_directions_per_thread=1,
-    )  # noqa: E731
+    def f(y):
+        return solve(
+            lorenz,
+            y,
+            np.linspace(0.0, 1.0, 5),
+            LOR_P[0],
+            method=Tsit5(),
+            rtol=1e-8,
+            atol=1e-10,
+            max_directions_per_thread=1,
+        )
+
     return jax.jacfwd(f)(jnp.asarray(LOR_Y0[0]))
 
 
@@ -298,7 +320,10 @@ for k in range(3):
     @case(f"hier3_jvp_p{k}")
     def _(k=k):
         dp = jnp.zeros((2, 3)).at[:, k].set(1.0)
-        f = lambda p: solve(CHAIN, Y0, T_SPAN, p, return_stats=True, **TOL)  # noqa: E731
+
+        def f(p):
+            return solve(CHAIN, Y0, T_SPAN, p, return_stats=True, **TOL)
+
         (h, s), (dh, _) = jax.jvp(f, (P,), (dp,))
         return {"primal": h, "tangent": dh, "stats": s}
 
@@ -449,17 +474,19 @@ for mname, meth in (("rodas5p", F64), ("tsit5", Tsit5()), ("auto", Auto())):
 
 @case("hook_jvp_params_rodas5p")
 def _():
-    f = lambda p: solve(
-        oscillator,
-        HK_Y0,
-        HK_T,
-        p,
-        method=F64,
-        save_hook=energy_and_position,
-        save_history=False,
-        sens_error_control=False,
-        **HK_TOL,
-    )  # noqa: E731
+    def f(p):
+        return solve(
+            oscillator,
+            HK_Y0,
+            HK_T,
+            p,
+            method=F64,
+            save_hook=energy_and_position,
+            save_history=False,
+            sens_error_control=False,
+            **HK_TOL,
+        )
+
     return jax.jvp(f, (jnp.asarray(HK_P),), (jnp.ones((3, 2)),))
 
 
@@ -476,16 +503,18 @@ def _():
 
 @case("hier3_hook_jvp")
 def _():
-    f = lambda p: solve(
-        CHAIN,
-        Y0,
-        T_SPAN,
-        p,
-        save_hook=hier_quantities,
-        save_history=False,
-        sens_error_control=False,
-        **TOL,
-    )  # noqa: E731
+    def f(p):
+        return solve(
+            CHAIN,
+            Y0,
+            T_SPAN,
+            p,
+            save_hook=hier_quantities,
+            save_history=False,
+            sens_error_control=False,
+            **TOL,
+        )
+
     return jax.jvp(f, (P,), (jnp.ones((2, 3)),))
 
 

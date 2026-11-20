@@ -18,7 +18,6 @@ import time
 import jax
 import jax.numpy as jnp
 import numpy as np
-
 from discoeb import solve_eb
 from discoeb.models import LCDM
 from discoeb.observables.power_spectrum import matter_power_spectrum

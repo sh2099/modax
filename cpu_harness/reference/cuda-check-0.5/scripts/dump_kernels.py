@@ -10,18 +10,32 @@ Per case:
                   modax._codegen.compile_device_source during the solve (the
                   literal-seed Jacobian writers, the sparse LU), wrapped where
                   each module imported it;
-  <case>.asm.txt  sha256 of whatever device code numba-cuda-mlir gives for each
-                  kernel launched (``inspect_asm``, else ``inspect_llvm``), one
-                  line per kernel and signature, or why it could not.
+  <case>.asm.txt  per kernel launched and signature, the sha256 of the device
+                  code numba-cuda-mlir gives (``inspect_asm``, else
+                  ``inspect_llvm``) with its per-process ids masked, the number
+                  of ids masked and of 12-plus-digit runs left (the raw sha256s,
+                  which differ between processes, go to OUTDIR/../<dir>_raw_digests.txt);
+  <case>.ptx.txt  that masked device code itself, to diff where digests differ.
+
+numba-cuda-mlir names a device function it calls ``<qualname>_<id(dispatcher)>``
+(mlir_lowering.py, ``f"{fn.py_func.__qualname__}_{id(fn)}"``, and the same for
+overloads), so every symbol carries a memory address of this process and the
+raw device code differs between two runs of the same tree. The mask finds
+every live dispatcher, and replaces its id, wherever it appears, by ``ID<n>``
+in order of first appearance, rewriting the Itanium-mangled identifier
+(``<length><name>``) it sits in so the length prefix stays consistent.
+Anything else that changed would still change the masked digest.
 The source dumps are the same text whichever target compiles them; the asm
 lines exist only on CUDA (the CPU target builds no CudaLaunch).
 """
 
 import contextlib
+import gc
 import hashlib
 import io
 import math
 import os
+import re
 import sys
 
 os.environ["MODAX_HIERARCHY_DUMP"] = "1"
@@ -36,6 +50,39 @@ from modax import Auto, Block, Hierarchy, Rodas5P, Tsit5, solve  # noqa: E402
 
 DEV = []
 ASM = []
+RAW = []
+PTX = []
+LONG_DIGITS = re.compile(r"(?<![0-9])[0-9]{12,}(?![0-9])")
+
+
+def _mangle(name):
+    """numba's Itanium encoding of one identifier, ``<length><escaped name>``."""
+    try:
+        from numba.core.itanium_mangler import mangle_identifier
+    except ImportError:  # pragma: no cover - older layouts
+        from numba_cuda_mlir.numba_cuda.core.itanium_mangler import mangle_identifier
+    return mangle_identifier(name)
+
+
+def mask_ids(text):
+    """``text`` with each live dispatcher's id replaced by ``ID<n>``, and the count replaced."""
+    found = {}
+    for obj in gc.get_objects():
+        if "Dispatcher" in type(obj).__name__ and hasattr(obj, "py_func"):
+            ident = str(id(obj))
+            if ident in text:
+                found[ident] = getattr(obj.py_func, "__qualname__", "")
+    order = sorted(found, key=text.index)
+    for n, ident in enumerate(order):
+        label = f"ID{n}"
+        qualname = found[ident]
+        text = text.replace(
+            _mangle(f"{qualname}_{ident}"), _mangle(f"{qualname}_{label}")
+        )
+        text = text.replace(ident, label)
+    return text, len(order)
+
+
 _compile = cg.compile_device_source
 
 
@@ -68,10 +115,18 @@ def recording_launch(kernel, argtypes, **kw):
             text = fn()
             items = text.items() if isinstance(text, dict) else [("", text)]
             for sig, body in items:
-                digest = hashlib.sha256(str(body).encode()).hexdigest()
+                raw = str(body)
+                masked, n_ids = mask_ids(raw)
+                left = len(LONG_DIGITS.findall(masked))
                 ASM.append(
-                    f"{attr} {getattr(kernel, '__name__', type(kernel).__name__)} {sig} {digest} {len(str(body))}"
+                    f"{attr} {getattr(kernel, '__name__', type(kernel).__name__)} {sig}"
+                    f" masked {hashlib.sha256(masked.encode()).hexdigest()} ids {n_ids}"
+                    f" long-digit-runs-left {left} chars {len(raw)}"
                 )
+                RAW.append(
+                    f"{attr} {sig} raw {hashlib.sha256(raw.encode()).hexdigest()}"
+                )
+                PTX.append(f"### {attr} {sig}\n{masked}\n")
             break
         except Exception as e:  # noqa: BLE001
             ASM.append(f"{attr} failed: {e!r}")
@@ -85,6 +140,9 @@ if _make_launch is not None:
 
 outdir = sys.argv[1]
 os.makedirs(outdir, exist_ok=True)
+open(
+    os.path.join(outdir, "..", f"{os.path.basename(outdir)}_raw_digests.txt"), "w"
+).close()
 T_SPAN = np.linspace(0.0, 3.0, 7)
 F64 = Rodas5P(lu_precision="fp64")
 TOL = dict(rtol=1e-9, atol=1e-11, method=F64)
@@ -169,6 +227,8 @@ ROB_T = np.array([0.0, 1e-2, 1e2])
 def dump(name, fn):
     DEV.clear()
     ASM.clear()
+    RAW.clear()
+    PTX.clear()
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         jax.block_until_ready(fn())
@@ -177,9 +237,16 @@ def dump(name, fn):
         (".py.txt", text),
         (".dev.txt", "".join(DEV)),
         (".asm.txt", "\n".join(ASM) + "\n"),
+        (".ptx.txt", "".join(PTX)),
     ):
         with open(os.path.join(outdir, name + suffix), "w") as f:
             f.write(body)
+    # the raw digests differ between processes by construction: kept apart, so that
+    # the comparison of the dump directories reads the masked ones only
+    with open(
+        os.path.join(outdir, "..", f"{os.path.basename(outdir)}_raw_digests.txt"), "a"
+    ) as f:
+        f.write("".join(f"{name} {line}\n" for line in RAW))
     print(
         f"[dump] {name}: kernel {text.count(chr(10))} lines; {len(DEV)} generated device functions; {len(ASM)} asm lines",
         flush=True,

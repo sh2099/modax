@@ -14,7 +14,14 @@ git archive --format=tar --prefix=a/ v0.5.0 modax tests pyproject.toml "${py[@]}
 git archive --format=tar --prefix=b/ "$rev" modax tests pyproject.toml "${py[@]}" \
   cpu_harness/reference/cuda-check-0.5/scripts \
   cpu_harness/make_gpu_reference_21.py cpu_harness/compare_with_gpu_21.py > "$tmp/b.tar"
-tar -Af "$tmp/a.tar" "$tmp/b.tar" 2>/dev/null || { (cd "$tmp" && mkdir x && tar -xf a.tar -C x && tar -xf b.tar -C x && tar -cf a.tar -C x a b); }
+# bsdtar (macOS) has no -A: unpack both and pack again, without the AppleDouble ._* files and
+# extended attributes it would otherwise add (the first tarball of 2026-11-20 had them)
+export COPYFILE_DISABLE=1
+tar -Af "$tmp/a.tar" "$tmp/b.tar" 2>/dev/null || {
+  (cd "$tmp" && mkdir x && tar -xf a.tar -C x && tar -xf b.tar -C x &&
+    { tar --no-mac-metadata --no-xattrs -cf a.tar -C x a b 2>/dev/null || tar -cf a.tar -C x a b; })
+}
 gzip -9 -c "$tmp/a.tar" > "$out"
 echo "$out: $(du -h "$out" | cut -f1); a = v0.5.0 $(git rev-parse --short v0.5.0^{commit}), b = $rev $(git rev-parse --short "$rev")"
 tar -tzf "$out" | awk -F/ '{print $1"/"$2}' | sort -u | tr '\n' ' '; echo
+echo "AppleDouble entries: $(tar -tzf "$out" | grep -c '/\._' || true)"

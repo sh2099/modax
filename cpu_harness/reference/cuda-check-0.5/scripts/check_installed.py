@@ -25,18 +25,26 @@ print(
 
 
 def digests(root):
+    """sha256 of each ``*.py`` in ``root``, and the AppleDouble ``._*`` files a macOS tar adds."""
+    names = sorted(n for n in os.listdir(root) if n.endswith(".py"))
+    metadata = [n for n in names if n.startswith("._")]
     return {
-        name: hashlib.sha256(open(os.path.join(root, name), "rb").read()).hexdigest()
-        for name in sorted(os.listdir(root))
-        if name.endswith(".py")
-    }
+        n: hashlib.sha256(open(os.path.join(root, n), "rb").read()).hexdigest()
+        for n in names
+        if not n.startswith("._")
+    }, metadata
 
 
-a, b = digests(installed), digests(tree)
+(a, _), (b, apple) = digests(installed), digests(tree)
+if apple:
+    print(
+        f"  ignored in the tree: {len(apple)} AppleDouble files (._*) from a macOS tar, not Python"
+    )
 bad = [n for n in sorted(set(a) | set(b)) if a.get(n) != b.get(n)]
 for n in bad:
     print(
         f"  differs: {n} (installed {a.get(n, 'absent')[:12]}, tree {b.get(n, 'absent')[:12]})"
     )
-print(f"{len(a)} installed, {len(b)} in the tree, {len(bad)} differ")
+same = len([n for n in a if a[n] == b.get(n)])
+print(f"{len(a)} installed, {len(b)} in the tree, {same} identical, {len(bad)} differ")
 sys.exit(1 if bad else 0)

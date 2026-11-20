@@ -45,11 +45,12 @@ import jax.numpy as jnp  # noqa: E402
 jax.config.update("jax_enable_x64", True)
 
 import discoeb  # noqa: E402
-import modax  # noqa: E402
 from discoeb import solve_eb  # noqa: E402
 from discoeb.components.recombination import ReionizationDepth  # noqa: E402
 from discoeb.models import LCDM, LCDM_MNU, W0WACDM  # noqa: E402
 from discoeb.observables.power_spectrum import matter_power_spectrum  # noqa: E402
+
+import modax  # noqa: E402
 
 A = {}
 META = {"errors": {}, "timings_s": {}, "notes": {}}
