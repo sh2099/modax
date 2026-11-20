@@ -110,20 +110,27 @@ modax 0.5.0 with this branch (cpu-target-0.4 merged, the Enzyme engine and
 this launcher from cpu-target-0.3), DISCO-EB 2.1.0 (`6385553`); Apple M4
 Pro.
 
-- modax's suite, Enzyme (the toolchain's numba 0.61.2): 255 passed, 5
-  skipped, 1 failed. Finite differences (numba 0.68.1): 211 passed, 31
-  skipped (the Enzyme file among them), 19 failed. The failure common to
-  both is `test_an_upstream_auto_block_switches_where_its_problem_turns_stiff`,
-  as on 0.3 and 0.4. The other 18 are the differentiated solves on the
-  plain Rodas5P and Tsit5 kernels (`tests/test_sensitivity.py`,
-  `test_save_hook.py`, `test_params.py`, and `test_hierarchy.py`'s joint
-  reference): v0.5.0 puts the directions in the parameter row after the
-  parameters and narrows `n_params` to the parameters, while the
-  differences read the launch's appended columns at `p[n_params + c]`, so
-  they read a direction instead. Not yet fixed.
-- DISCO-EB 2.1's P(k) for one LCDM cosmology at 64 modes
-  (`solve_eb(..., keep=("delta_c", "delta_b"), thermo_weight=0.1)`) is
-  finite under either engine, and the two agree to about 1e-5.
+- modax's suite: 260 passed, 5 skipped, 1 failed with Enzyme (the
+  toolchain's numba 0.61.2); 234 passed, 31 skipped (the Enzyme file), 1
+  failed with finite differences, in the numba 0.68 environment, in the
+  toolchain's, and serial with bounds checking. The failure is
+  `test_an_upstream_auto_block_switches_where_its_problem_turns_stiff`, as on
+  0.3 and 0.4. With `MODAX_POISON=1` the hierarchy's sensitivities are NaN
+  too (`test_hierarchy.py` and the replica test in `test_cpu_target.py`), as
+  on the 0.4 branch: the read of an unwritten upstream coefficient
+  `modax/_target.py` describes.
+- The differences once read the launch's columns at `p[n_params + c]`,
+  which in 0.5's joint rows is the first direction; they now read them at
+  the row's end (`_differences.driver_column`). On the sensitivity tests'
+  problems the two engines' tangents agree to 1e-9 of their scale.
+- DISCO-EB 2.1, one LCDM cosmology, P(k) at 64 modes
+  (`solve_eb(..., keep=("delta_c", "delta_b"), thermo_weight=0.1)`): finite
+  under either engine, the two agreeing to about 1e-5; the value of a `jvp`
+  in `omega_c` is the plain solve's to 8e-5 under either. Its tangent with
+  Enzyme is a tight central difference's to 4e-4 of its scale; with finite
+  differences a few modes are off by up to 0.2 of the scale (0.5 with
+  double-precision RECFAST), not shrinking steadily with the tolerance.
+  Not yet understood.
 
 ## The CUDA path, checked on a GPU
 
