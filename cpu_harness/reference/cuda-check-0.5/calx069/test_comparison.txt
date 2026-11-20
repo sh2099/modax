@@ -1,0 +1,73 @@
+counts a: {'PASSED': 233, 'SKIPPED': 2} total 235
+counts b: {'PASSED': 233, 'SKIPPED': 67} total 300
+
+tests with different outcome: 65
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_configured_tool_directory_must_hold_the_tools
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_cpu_stand_in_is_not_numba_cuda
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_difference_step_over_a_guard_is_taken_the_other_way
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_division_by_zero_does_not_cost_the_other_trajectories
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_missing_toolchain_falls_back_with_one_warning
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_second_difference_shortens_its_steps_off_a_non_finite_corner
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_an_incomplete_cuda_stack_is_the_cpu_target[missing0]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_an_incomplete_cuda_stack_is_the_cpu_target[missing1]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_an_incomplete_cuda_stack_is_the_cpu_target[missing2]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_cuda_derivatives_are_always_enzyme
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_jacobian_gives_the_rate_along_a_parameter_seed
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_jacobian_matches_autodiff[grid]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_jacobian_matches_autodiff[packed]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[all-flow-all]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[all-time-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[flow-flow-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[flow-flow-state]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[parameters-state-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[state-state-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[all]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[flow]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[parameters]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[small state]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[state]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[time]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_reads_only_the_state_of_an_augmented_vector
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_differenced_joint_solves_on_the_plain_kernels_match_the_closed_form
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_each_trajectory_gets_the_answer_it_gets_alone[method0]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_each_trajectory_gets_the_answer_it_gets_alone[method1]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_grouped_parameters_are_sized_by_the_largest_of_the_group
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_hierarchy_directions_spread_over_replicas[1-3]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_hierarchy_directions_spread_over_replicas[2-2]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_robertson_matches_radau[fp32]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_robertson_matches_radau[fp64]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_the_cpu_target_can_be_forced_beside_a_complete_cuda_stack
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_the_launch_columns_are_read_at_the_rows_end
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_the_source_generated_for_cuda_is_upstreams
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_with_enzyme_the_cpu_target_takes_it
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_without_enzyme_the_cpu_target_differences_and_says_why
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_constant_size_local_array_is_differentiated
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_derivative_is_built_once_however_many_threads_ask
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_quantity_of_one_value[bare_value]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_quantity_of_one_value[one_value]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_stack_array_starts_as_zeros_and_is_its_own
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_sweep_takes_contiguous_arrays
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_an_allocation_is_refused_not_differentiated[allocates]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_an_allocation_is_refused_not_differentiated[allocates_in_a_callee]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[all-all-parameters]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[all-flow-all]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[all-time-None]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[flow-flow-None]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[flow-flow-state]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[parameters-state-None]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[state-state-None]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[all]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[flow]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[parameters]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[small state]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[state]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[time]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_reads_only_the_state_of_an_augmented_vector
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_sensitivities_of_a_stiff_solve_match_differenced_solves
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_the_literal_seed_jacobian_matches_autodiff[grid]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_the_literal_seed_jacobian_matches_autodiff[packed]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_two_closures_of_the_same_source_get_their_own_derivatives
+
+not passing, same outcome in both:
+  SKIPPED  tests/test_blackwell.py::test_solves_and_differentiates_on_blackwell[rodas5P]
+  SKIPPED  tests/test_blackwell.py::test_solves_and_differentiates_on_blackwell[tsit5]

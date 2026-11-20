@@ -1,0 +1,208 @@
+== d2_env
+[d2] 2026-11-20T14:45:58Z upstream/env: /tmp/sh2099-eb21/mc/b/cpu_harness/reference/cuda-check-0.5/scripts/env_report.py (cwd /tmp/sh2099-eb21/mc/a, NUMBA_CACHE_DIR /tmp/sh2099-eb21/mc/out/cache/upstream-env)
+[runner] side upstream, modax /tmp/sh2099-eb21/mc/a/modax/__init__.py, python 3.13.18, {'modax-solvers': '0.5.0', 'numba': '0.68.1', 'llvmlite': '0.50.0', 'numba-cuda-mlir': '0.5.1', 'numba-enzyme-cuda': '0.3.1', 'jax': '0.10.2', 'jaxlib': '0.10.2', 'numpy': '2.5.4', 'disco-eb': '2.1.0'}
+python 3.13.18
+jax 0.10.2 [CudaDevice(id=0)]
+device NVIDIA RTX A400 cc ComputeCapability(major=8, minor=6)
+modax-solvers 0.5.0
+disco-eb 2.1.0
+numba 0.68.1
+llvmlite 0.50.0
+numba-cuda-mlir 0.5.1
+numba-enzyme-cuda 0.3.1
+jax 0.10.2
+jaxlib 0.10.2
+numpy 2.5.4
+cuda-bindings 13.4.1
+[runner] at exit: modax /tmp/sh2099-eb21/mc/a/modax/__init__.py (upstream); CPU-target modules imported: none
+[d2] upstream/env exit 0 after 3 s
+[d2] 2026-11-20T14:46:01Z branch/env: /tmp/sh2099-eb21/mc/b/cpu_harness/reference/cuda-check-0.5/scripts/env_report.py (cwd /tmp/sh2099-eb21/mc/b, NUMBA_CACHE_DIR /tmp/sh2099-eb21/mc/out/cache/branch-env)
+[runner] branch: TARGET=cuda, cuda is numba_cuda_mlir.cuda: True
+[runner] side branch, modax /tmp/sh2099-eb21/mc/b/modax/__init__.py, python 3.13.18, {'modax-solvers': '0.5.0', 'numba': '0.68.1', 'llvmlite': '0.50.0', 'numba-cuda-mlir': '0.5.1', 'numba-enzyme-cuda': '0.3.1', 'jax': '0.10.2', 'jaxlib': '0.10.2', 'numpy': '2.5.4', 'disco-eb': '2.1.0'}
+python 3.13.18
+jax 0.10.2 [CudaDevice(id=0)]
+device NVIDIA RTX A400 cc ComputeCapability(major=8, minor=6)
+modax-solvers 0.5.0
+disco-eb 2.1.0
+numba 0.68.1
+llvmlite 0.50.0
+numba-cuda-mlir 0.5.1
+numba-enzyme-cuda 0.3.1
+jax 0.10.2
+jaxlib 0.10.2
+numpy 2.5.4
+cuda-bindings 13.4.1
+[runner] at exit: modax /tmp/sh2099-eb21/mc/b/modax/__init__.py (branch); CPU-target modules imported: ['modax._differences', 'modax._target']
+[d2] branch/env exit 0 after 2 s
+installed modax-solvers 0.5.0 at /tmp/sh2099-eb21/DISCO-EB/.venv/lib/python3.13/site-packages/modax; tree /tmp/sh2099-eb21/mc/a/modax
+  differs: .___init__.py (installed absent, tree 216cd97a998d)
+  differs: .__codegen.py (installed absent, tree 216cd97a998d)
+  differs: .__compile_once.py (installed absent, tree 216cd97a998d)
+  differs: .__hierarchy.py (installed absent, tree 216cd97a998d)
+  differs: .__jax_common.py (installed absent, tree 216cd97a998d)
+  differs: .__jax_numba_custom_call.py (installed absent, tree 216cd97a998d)
+  differs: .__kernel_cache.py (installed absent, tree 216cd97a998d)
+  differs: .__methods.py (installed absent, tree 216cd97a998d)
+  differs: .__numba_common.py (installed absent, tree 216cd97a998d)
+  differs: .__options.py (installed absent, tree 216cd97a998d)
+  differs: .__params.py (installed absent, tree 216cd97a998d)
+  differs: .__rodas5P.py (installed absent, tree 216cd97a998d)
+  differs: .__sensitivity.py (installed absent, tree 216cd97a998d)
+  differs: .__solve.py (installed absent, tree 216cd97a998d)
+  differs: .__sparse_direct.py (installed absent, tree 216cd97a998d)
+  differs: .__sparsity.py (installed absent, tree 216cd97a998d)
+  differs: .__split.py (installed absent, tree 216cd97a998d)
+  differs: .__tsit5.py (installed absent, tree 216cd97a998d)
+18 installed, 36 in the tree, 18 differ
+== d2_env exit 0
+== d2_solves
+[runner] at exit: modax /tmp/sh2099-eb21/mc/a/modax/__init__.py (upstream); CPU-target modules imported: none
+[d2] upstream/solves1 exit 0 after 645 s
+[runner] at exit: modax /tmp/sh2099-eb21/mc/b/modax/__init__.py (branch); CPU-target modules imported: ['modax._differences', 'modax._target']
+[d2] branch/solves1 exit 0 after 488 s
+[runner] at exit: modax /tmp/sh2099-eb21/mc/a/modax/__init__.py (upstream); CPU-target modules imported: none
+[d2] upstream/solves2 exit 0 after 434 s
+[runner] at exit: modax /tmp/sh2099-eb21/mc/b/modax/__init__.py (branch); CPU-target modules imported: ['modax._differences', 'modax._target']
+[d2] branch/solves2 exit 0 after 432 s
+## upstream 1 vs branch 1: 138 vs 138 arrays
+138/138 arrays bitwise identical
+## upstream 2 vs branch 2: 138 vs 138 arrays
+138/138 arrays bitwise identical
+## upstream run to run: 138 vs 138 arrays
+138/138 arrays bitwise identical
+## branch run to run: 138 vs 138 arrays
+138/138 arrays bitwise identical
+errors upstream1: 0
+errors upstream2: 0
+errors branch1: 0
+errors branch2: 0
+== d2_solves exit 0
+== d2_kernels
+[runner] at exit: modax /tmp/sh2099-eb21/mc/a/modax/__init__.py (upstream); CPU-target modules imported: none
+[d2] upstream/dump exit 0 after 192 s
+[runner] at exit: modax /tmp/sh2099-eb21/mc/b/modax/__init__.py (branch); CPU-target modules imported: ['modax._differences', 'modax._target']
+[d2] branch/dump exit 0 after 185 s
+kernel dumps DIFFER: see /tmp/sh2099-eb21/mc/out/logs/dump_diff.txt
+diff -r /tmp/sh2099-eb21/mc/out/dump_upstream/hier2_jvp_y0.asm.txt /tmp/sh2099-eb21/mc/out/dump_branch/hier2_jvp_y0.asm.txt
+1c1
+< inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) 34fedeab78cb1a5892fb3c1988254fcd7f82720c57445ca44706c496a2961cd4 1146319
+---
+> inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) c269057533ed77b9bab714eb70f5b8addeee7766d2e62f2bbf0cf69b9a01dccc 1146319
+diff -r /tmp/sh2099-eb21/mc/out/dump_upstream/hier2_mixed_tsit5_root.asm.txt /tmp/sh2099-eb21/mc/out/dump_branch/hier2_mixed_tsit5_root.asm.txt
+1c1
+< inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) b9bb8bcea4df01f4596594ccaaeb21621396ab77fd0d69364ef67621f870c941 383155
+---
+> inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) ca36a2dcfcbc1e6be1b1dd05d9288f8c5d4ab5ef60f6eb9b0b52f166617691d4 383155
+diff -r /tmp/sh2099-eb21/mc/out/dump_upstream/hier2_plain.asm.txt /tmp/sh2099-eb21/mc/out/dump_branch/hier2_plain.asm.txt
+1c1
+< inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) ccfc46bf3ad3a3ea1f09363cfea60c5e73b712942932f135b5aae8e628734af2 461340
+---
+> inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) e7e37377b39123abd2054b46592682f3f384d9a57064e83b56c97454d5a45838 461340
+diff -r /tmp/sh2099-eb21/mc/out/dump_upstream/hier3_auto.asm.txt /tmp/sh2099-eb21/mc/out/dump_branch/hier3_auto.asm.txt
+1c1
+< inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) 7ff5d724f9069db6b3beaf2a29aee28ed38d4eebdc31b82a1cc4d668d88a59b2 1001335
+---
+> inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) 481a0e05547367fd302a8a505657e0d92fa2749eae352816a0e9a56930332cc9 1001335
+diff -r /tmp/sh2099-eb21/mc/out/dump_upstream/hier3_fp32_default.asm.txt /tmp/sh2099-eb21/mc/out/dump_branch/hier3_fp32_default.asm.txt
+1c1
+< inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) 1da78e604d57a1cba3be1f68232119dea5bd0515cbc22ec75132af5e3c1bc4fd 750040
+---
+> inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) 14c09a51d8d99f1b7c13eccc6262318c35232645c86d7ada7e7c0018c70ae262 750040
+diff -r /tmp/sh2099-eb21/mc/out/dump_upstream/hier3_hook.asm.txt /tmp/sh2099-eb21/mc/out/dump_branch/hier3_hook.asm.txt
+1c1
+< inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) ee3a576ac9edaf16cb754d1d6281fc56719c70e4bbe3ffce1e95a499eb284dff 752166
+---
+> inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) 6d09ed2d018ab23e27b28c47399421eeca65daa3e0c5497b0d07cd97434ffb8e 752166
+diff -r /tmp/sh2099-eb21/mc/out/dump_upstream/hier3_hook_jvp.asm.txt /tmp/sh2099-eb21/mc/out/dump_branch/hier3_hook_jvp.asm.txt
+1c1
+< inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) 5fb14248dc4be79b70368ac56444bd18cc6c44db01857dc6c5bf47549df834c7 1698031
+---
+> inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) 824a865e5e5a65a814333c065ccbff8637393d51ce75c323a0b7a6897f665ee5 1698031
+diff -r /tmp/sh2099-eb21/mc/out/dump_upstream/hier3_jacfwd_per_thread_1.asm.txt /tmp/sh2099-eb21/mc/out/dump_branch/hier3_jacfwd_per_thread_1.asm.txt
+1c1
+< inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) 35e8b1985c8162dd26a8ba7aac590cfa3da1e7ce794114d952a8a0fcb1fb9912 1684267
+---
+> inspect_asm kernel (Array(float64, 2, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True), float64, float64, float64, int32, int32, Array(float64, 2, 'C', False, aligned=True), Array(float64, 3, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(int32, 1, 'C', False, aligned=True), Array(float64, 2, 'C', False, aligned=True)) c5e55c1ef1809c1869bae65644b6f904f29c1fe7340e370175e901ba66d88672 1684267
+== d2_kernels exit 0
+== d2_tests
+=========== 233 passed, 3 skipped, 34 warnings in 594.32s (0:09:54) ============
+[runner] at exit: modax /tmp/sh2099-eb21/mc/a/modax/__init__.py (upstream); CPU-target modules imported: none
+[d2] upstream/tests exit 0 after 618 s
+=========== 233 passed, 68 skipped, 34 warnings in 568.96s (0:09:28) ===========
+[runner] at exit: modax /tmp/sh2099-eb21/mc/b/modax/__init__.py (branch); CPU-target modules imported: ['modax._differences', 'modax._target']
+[d2] branch/tests exit 0 after 594 s
+counts a: {'PASSED': 233, 'SKIPPED': 2} total 235
+counts b: {'PASSED': 233, 'SKIPPED': 67} total 300
+
+tests with different outcome: 65
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_configured_tool_directory_must_hold_the_tools
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_cpu_stand_in_is_not_numba_cuda
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_difference_step_over_a_guard_is_taken_the_other_way
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_division_by_zero_does_not_cost_the_other_trajectories
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_missing_toolchain_falls_back_with_one_warning
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_second_difference_shortens_its_steps_off_a_non_finite_corner
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_an_incomplete_cuda_stack_is_the_cpu_target[missing0]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_an_incomplete_cuda_stack_is_the_cpu_target[missing1]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_an_incomplete_cuda_stack_is_the_cpu_target[missing2]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_cuda_derivatives_are_always_enzyme
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_jacobian_gives_the_rate_along_a_parameter_seed
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_jacobian_matches_autodiff[grid]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_jacobian_matches_autodiff[packed]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[all-flow-all]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[all-time-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[flow-flow-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[flow-flow-state]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[parameters-state-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[state-state-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[all]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[flow]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[parameters]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[small state]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[state]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[time]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_reads_only_the_state_of_an_augmented_vector
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_differenced_joint_solves_on_the_plain_kernels_match_the_closed_form
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_each_trajectory_gets_the_answer_it_gets_alone[method0]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_each_trajectory_gets_the_answer_it_gets_alone[method1]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_grouped_parameters_are_sized_by_the_largest_of_the_group
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_hierarchy_directions_spread_over_replicas[1-3]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_hierarchy_directions_spread_over_replicas[2-2]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_robertson_matches_radau[fp32]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_robertson_matches_radau[fp64]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_the_cpu_target_can_be_forced_beside_a_complete_cuda_stack
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_the_launch_columns_are_read_at_the_rows_end
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_the_source_generated_for_cuda_is_upstreams
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_with_enzyme_the_cpu_target_takes_it
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_without_enzyme_the_cpu_target_differences_and_says_why
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_constant_size_local_array_is_differentiated
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_derivative_is_built_once_however_many_threads_ask
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_quantity_of_one_value[bare_value]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_quantity_of_one_value[one_value]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_stack_array_starts_as_zeros_and_is_its_own
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_a_sweep_takes_contiguous_arrays
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_an_allocation_is_refused_not_differentiated[allocates]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_an_allocation_is_refused_not_differentiated[allocates_in_a_callee]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[all-all-parameters]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[all-flow-all]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[all-time-None]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[flow-flow-None]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[flow-flow-state]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[parameters-state-None]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_second_tangent_matches_autodiff[state-state-None]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[all]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[flow]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[parameters]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[small state]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[state]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_matches_autodiff[time]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_enzyme_tangent_reads_only_the_state_of_an_augmented_vector
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_sensitivities_of_a_stiff_solve_match_differenced_solves
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_the_literal_seed_jacobian_matches_autodiff[grid]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_the_literal_seed_jacobian_matches_autodiff[packed]
+  ABSENT   -> SKIPPED   tests/test_enzyme_cpu.py::test_two_closures_of_the_same_source_get_their_own_derivatives
+
+not passing, same outcome in both:
+  SKIPPED  tests/test_blackwell.py::test_solves_and_differentiates_on_blackwell[rodas5P]
+  SKIPPED  tests/test_blackwell.py::test_solves_and_differentiates_on_blackwell[tsit5]
+== d2_tests exit 0
+ALLDONE

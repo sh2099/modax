@@ -1,0 +1,5 @@
+[runner] at exit: modax /tmp/sh2099-eb21/mc/a/modax/__init__.py (upstream); CPU-target modules imported: none
+[d2] upstream/dump exit 0 after 204 s
+[runner] at exit: modax /tmp/sh2099-eb21/mc/b/modax/__init__.py (branch); CPU-target modules imported: ['modax._differences', 'modax._target']
+[d2] branch/dump exit 0 after 204 s
+kernel dumps identical: 64 files

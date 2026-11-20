@@ -1,0 +1,25 @@
+[d2] 2026-11-20T16:40:50Z upstream/dump: /tmp/sh2099-eb21/mc/b/cpu_harness/reference/cuda-check-0.5/scripts/dump_kernels.py /tmp/sh2099-eb21/mc/out/dump_upstream (cwd /tmp/sh2099-eb21/mc/a, NUMBA_CACHE_DIR /tmp/sh2099-eb21/mc/out/cache/upstream-dump)
+[runner] side upstream, modax /tmp/sh2099-eb21/mc/a/modax/__init__.py, python 3.13.18, {'modax-solvers': '0.5.0', 'numba': '0.68.1', 'llvmlite': '0.50.0', 'numba-cuda-mlir': '0.5.1', 'numba-enzyme-cuda': '0.3.1', 'jax': '0.10.2', 'jaxlib': '0.10.2', 'numpy': '2.5.4', 'disco-eb': '2.1.0'}
+[dump] wrapped compile_device_source in modax._hierarchy
+[dump] wrapped compile_device_source in modax._sparse_direct
+[dump] wrapped compile_device_source in modax._split
+[dump] wrapped compile_device_source in modax._rodas5P
+[dump] hier3_plain: kernel 736 lines; 7 generated device functions; 1 asm lines
+[dump] hier2_plain: kernel 387 lines; 4 generated device functions; 1 asm lines
+[dump] hier2_mixed_tsit5_root: kernel 373 lines; 2 generated device functions; 1 asm lines
+[dump] hier3_fp32_default: kernel 736 lines; 7 generated device functions; 1 asm lines
+[dump] hier3_auto: kernel 1187 lines; 10 generated device functions; 1 asm lines
+[dump] hier3_jvp_params: kernel 833 lines; 7 generated device functions; 1 asm lines
+[dump] hier3_jacfwd_per_thread_1: kernel 0 lines; 0 generated device functions; 1 asm lines
+[dump] hier2_jvp_y0: kernel 442 lines; 4 generated device functions; 1 asm lines
+[dump] hier3_hook: kernel 749 lines; 7 generated device functions; 1 asm lines
+[dump] hier3_hook_jvp: kernel 857 lines; 7 generated device functions; 1 asm lines
+[dump] onebl_tsit5_hook: kernel 0 lines; 0 generated device functions; 1 asm lines
+[dump] onebl_auto: kernel 259 lines; 2 generated device functions; 1 asm lines
+[dump] plain_rodas5p_dense: kernel 0 lines; 1 generated device functions; 1 asm lines
+[dump] plain_rodas5p_hook_jvp: kernel 0 lines; 1 generated device functions; 1 asm lines
+[dump] plain_sparse_fp64: kernel 0 lines; 3 generated device functions; 1 asm lines
+[dump] plain_sparse_jvp: kernel 0 lines; 1 generated device functions; 1 asm lines
+[dump] done
+[runner] at exit: modax /tmp/sh2099-eb21/mc/a/modax/__init__.py (upstream); CPU-target modules imported: none
+[d2] upstream/dump exit 0 after 204 s

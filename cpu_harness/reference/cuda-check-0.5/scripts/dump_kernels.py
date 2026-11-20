@@ -13,8 +13,11 @@ Per case:
   <case>.asm.txt  per kernel launched and signature, the sha256 of the device
                   code numba-cuda-mlir gives (``inspect_asm``, else
                   ``inspect_llvm``) with its per-process ids masked, the number
-                  of ids masked and of 12-plus-digit runs left (the raw sha256s,
-                  which differ between processes, go to OUTDIR/../<dir>_raw_digests.txt);
+                  of ids masked and of 12-plus-digit runs left (PTX's double
+                  literals such as 0d3FF0000000000000 and numba-enzyme's
+                  content hashes are among them; a leftover id would show as
+                  ``_<digits>``); the raw sha256s, which differ between
+                  processes, go to OUTDIR/../<dir>_raw_digests.txt;
   <case>.ptx.txt  that masked device code itself, to diff where digests differ.
 
 numba-cuda-mlir names a device function it calls ``<qualname>_<id(dispatcher)>``

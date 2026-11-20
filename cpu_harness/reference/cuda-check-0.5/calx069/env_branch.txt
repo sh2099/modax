@@ -1,0 +1,18 @@
+[d2] 2026-11-20T16:40:40Z branch/env: /tmp/sh2099-eb21/mc/b/cpu_harness/reference/cuda-check-0.5/scripts/env_report.py (cwd /tmp/sh2099-eb21/mc/b, NUMBA_CACHE_DIR /tmp/sh2099-eb21/mc/out/cache/branch-env)
+[runner] branch: TARGET=cuda, cuda is numba_cuda_mlir.cuda: True
+[runner] side branch, modax /tmp/sh2099-eb21/mc/b/modax/__init__.py, python 3.13.18, {'modax-solvers': '0.5.0', 'numba': '0.68.1', 'llvmlite': '0.50.0', 'numba-cuda-mlir': '0.5.1', 'numba-enzyme-cuda': '0.3.1', 'jax': '0.10.2', 'jaxlib': '0.10.2', 'numpy': '2.5.4', 'disco-eb': '2.1.0'}
+python 3.13.18
+jax 0.10.2 [CudaDevice(id=0)]
+device NVIDIA RTX A400 cc ComputeCapability(major=8, minor=6)
+modax-solvers 0.5.0
+disco-eb 2.1.0
+numba 0.68.1
+llvmlite 0.50.0
+numba-cuda-mlir 0.5.1
+numba-enzyme-cuda 0.3.1
+jax 0.10.2
+jaxlib 0.10.2
+numpy 2.5.4
+cuda-bindings 13.4.1
+[runner] at exit: modax /tmp/sh2099-eb21/mc/b/modax/__init__.py (branch); CPU-target modules imported: ['modax._differences', 'modax._target']
+[d2] branch/env exit 0 after 2 s

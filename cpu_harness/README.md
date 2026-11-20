@@ -21,7 +21,7 @@ cpu-target-0.3 ported. It runs DISCO-EB 2.1.0, which is written for modax
 | `make_gpu_reference_21.py`, `compare_with_gpu_21.py` | A DISCO-EB 2.1 record that runs unchanged on a GPU and on the CPU target, and a numpy-only comparison of two records. |
 | `make_gpu_reference.py`, `compare_with_gpu.py` | The same for DISCO-EB 2.0.1 on modax 0.3 (from cpu-target-0.4). |
 | `results/` | `discoeb_2.1.json`, `cpu_reference_2.1.npz` and `gpu_comparison_2.1.json` (this branch); `gpu_comparison.json` (DISCO-EB 2.0.1, from cpu-target-0.4). |
-| `reference/` | `gpu_reference_2.1.npz`, the GPU record of DISCO-EB 2.1; `cuda-check-0.5/scripts/`, the check of this branch's CUDA path against v0.5.0; `upstream-issues/`, problems found in upstream modax; and, from cpu-target-0.4, `cuda-check/` and the DISCO-EB 2.0.1 / modax 0.3.0 P100 record's package list and test log. |
+| `reference/` | `gpu_reference_2.1.npz`, the GPU record of DISCO-EB 2.1; `cuda-check-0.5/`, the check of this branch's CUDA path against v0.5.0 (scripts, `RESULTS.md`, the calx069 logs); `upstream-issues/`, problems found in upstream modax; and, from cpu-target-0.4, `cuda-check/` and the DISCO-EB 2.0.1 / modax 0.3.0 P100 record's package list and test log. |
 
 ## Two derivative engines
 
@@ -287,13 +287,28 @@ error.
 |---|---|---|
 | `d2_env.sh` | which modax, versions, device; the installed wheel against `a/` file by file | |
 | `d2_solves.sh` | `solves.py`: Robertson, Lorenz, the hierarchy chain, a split, a sparse chain, save hooks, jvp and jacfwd with and without `max_directions_per_thread`, a small DISCO-EB P(k) and jacfwd; upstream, branch, upstream, branch | bitwise: across sides and run to run |
-| `d2_kernels.sh` | generated hierarchy kernels and device functions, and a digest of each launched kernel's device code where numba-cuda-mlir gives one | `diff -r` |
+| `d2_kernels.sh` | generated hierarchy kernels and device functions, and a digest of each launched kernel's device code with its per-process ids masked | `diff -r` |
 | `d2_tests.sh` | each side's own `pytest tests -v -rA` | test by test |
 
 `MC_LOCAL_TEST=1` lets both trees be the branch on its CPU target. That is
 how the scripts were tested on the Mac: 136 of 136 arrays bitwise
 identical, 48 dump files identical, and the suites' outcomes the same test
-for test. That exercises the logic, not CUDA. The GPU run is in progress.
+for test. That exercises the logic, not CUDA.
+
+**On calx069** (RTX A400, DISCO-EB 2.1's stock environment, 2026-11-20;
+`reference/cuda-check-0.5/RESULTS.md`, logs in `calx069/`), the branch on
+CUDA is upstream v0.5.0:
+- each side imports its own tree, and the branch selects the CUDA target
+  without importing `modax._enzyme_cpu`; the installed modax-solvers 0.5.0
+  is `a/` file for file;
+- the 138 arrays of `solves.py` are bitwise identical across the sides, in
+  both runs, and run to run;
+- the generated source of all 16 dump cases is identical, and so is their
+  device code once numba-cuda-mlir's per-process ids are masked
+  (`<qualname>_<id(dispatcher)>` in every called function's symbol; raw, 11
+  of 16 differ between any two processes);
+- each side's suite: 233 passed on both; the only differences are the
+  branch's own CPU-target test files, skipped on CUDA.
 
 Older records: `reference/cuda-check/` compares the modax 0.4 CPU-target
 branch with v0.4.0 on a Tesla P100, made before the Enzyme engine;
