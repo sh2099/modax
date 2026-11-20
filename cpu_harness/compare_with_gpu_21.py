@@ -6,11 +6,21 @@ Needs only numpy: no modax, no DISCO-EB. ``THEIRS`` is the reference (the
 GPU's), and every scale is taken from it.
 
 Per array: whether the shapes match, and ``max`` and ``median`` of
-``|ours - theirs| / scale``, where the scale is the largest magnitude of the
-series the element belongs to (one kept quantity at one mode over the scale
-factors, one P(k) curve, one derivative column), so that a quantity passing
-through zero is not measured against itself. The same numbers divided by
-the solve's ``rtol`` say how many tolerances apart the two are.
+``|ours - theirs| / scale``. The same numbers divided by the solve's
+``rtol`` say how many tolerances apart the two are. The scale is a largest
+magnitude in the reference, so that an element passing through zero is not
+measured against itself:
+
+* for kept quantities, ``(cosmology, name, k, a)`` (the histories and the
+  reionization arrays), that of the quantity over every mode and scale
+  factor. A solve holds each quantity to its tolerance on the scale the
+  quantity has, not on the scale of one mode's curve: ``theta_b`` at the
+  lowest mode peaks at 4e-11 of its largest value and ``E_2`` at 2e-5, and
+  against their own curves the two records' rounding-level differences
+  there read as 0.06 and 0.14. The per-curve numbers are reported beside the
+  judged ones (``max (curve scale)``), so a curve that is wrong where its
+  quantity is small still shows;
+* for P(k), one curve; for a derivative, one column (one parameter over k).
 
 Thresholds, in units of ``rtol`` (1e-4, DISCO-EB's default for both):
 
@@ -78,6 +88,10 @@ SELF_CHECKS = (
 )
 
 
+KEPT = ("hist_planck", "hist_mnu", "reio_values", "reio_jvp_value", "reio_jvp_tangent")
+"""Arrays laid out (cosmology, name, k, a): judged against each quantity's scale over k and a."""
+
+
 def series_scale(theirs, name):
     """The magnitude each element is measured against: the max over the axis that runs along one series."""
     t = np.abs(theirs)
@@ -136,6 +150,11 @@ def compare(ours, theirs):
         a, b = a.astype(np.float64), b.astype(np.float64)
         finite = bool(np.isfinite(a).all() and np.isfinite(b).all())
         rel = np.abs(a - b) / series_scale(b, name)
+        curve = None
+        if name in KEPT:
+            curve = rel
+            scale = np.abs(b).max(axis=(-2, -1), keepdims=True)
+            rel = np.abs(a - b) / np.where(scale > 0.0, scale, 1.0)
         kind = "derivative" if name in DERIVATIVES else "value"
         gate = DERIVATIVE_GATE if kind == "derivative" else VALUE_GATE
         entry = {
@@ -148,6 +167,13 @@ def compare(ours, theirs):
             "at": [int(i) for i in np.unravel_index(np.nanargmax(rel), rel.shape)],
             "finite": finite,
         }
+        if curve is not None:
+            entry["scale"] = "quantity over k and a"
+            entry["max (curve scale)"] = float(np.nanmax(curve))
+            entry["median (curve scale)"] = float(np.nanmedian(curve))
+            entry["at (curve scale)"] = [
+                int(i) for i in np.unravel_index(np.nanargmax(curve), curve.shape)
+            ]
         ok = (
             finite
             and entry["max / rtol"] <= gate[0]
@@ -211,6 +237,11 @@ def main():
             print(
                 f"{name:34s} {e['status']:14s} {e['max']:10.2e} {e['median']:10.2e} {e['max / rtol']:9.2f} {e['median / rtol']:9.3f}  {e['kind']} at {e['at']}"
             )
+            if "max (curve scale)" in e:
+                print(
+                    f"{'':34s} {'(per curve)':14s} {e['max (curve scale)']:10.2e} {e['median (curve scale)']:10.2e}"
+                    f" {e['max (curve scale)'] / RTOL:9.2f} {e['median (curve scale)'] / RTOL:9.3f}  at {e['at (curve scale)']}"
+                )
         elif e.get("kind") == "steps":
             print(
                 f"{name:34s} {e['status']:14s} mean {e['mean ours']:.1f} against {e['mean theirs']:.1f}, max |diff| {e['max |diff|']}"

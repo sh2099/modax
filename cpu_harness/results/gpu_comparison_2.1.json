@@ -1,7 +1,7 @@
 {
  "files": [
-  "results/cpu_reference_2.1.npz",
-  "/private/tmp/claude-501/-Users-samhewson-Documents-PhD-code-DISCO-EB-lawrence/276482bf-cce1-4882-8682-5052a45fb517/scratchpad/d/gpu_reference_2.1.npz"
+  "cpu_harness/results/cpu_reference_2.1.npz",
+  "cpu_harness/reference/gpu_reference_2.1.npz"
  ],
  "meta": {
   "ours": {
@@ -135,9 +135,9 @@
     48
    ],
    "max": 0.00036180790010901636,
-   "median": 6.205869478869895e-10,
+   "median": 5.858555681580058e-11,
    "max / rtol": 3.6180790010901633,
-   "median / rtol": 6.205869478869895e-06,
+   "median / rtol": 5.858555681580058e-07,
    "at": [
     0,
     5,
@@ -145,6 +145,15 @@
     23
    ],
    "finite": true,
+   "scale": "quantity over k and a",
+   "max (curve scale)": 0.00036180790010901636,
+   "median (curve scale)": 6.205869478869895e-10,
+   "at (curve scale)": [
+    0,
+    5,
+    7,
+    23
+   ],
    "status": "ok"
   },
   "hist_mnu_keep": {
@@ -159,17 +168,26 @@
     8,
     48
    ],
-   "max": 0.1435375053296425,
-   "median": 1.9266177548139206e-10,
-   "max / rtol": 1435.3750532964248,
-   "median / rtol": 1.9266177548139205e-06,
+   "max": 0.0011941885786196495,
+   "median": 2.957095461609798e-11,
+   "max / rtol": 11.941885786196494,
+   "median / rtol": 2.9570954616097976e-07,
    "at": [
+    0,
+    6,
+    5,
+    33
+   ],
+   "finite": true,
+   "scale": "quantity over k and a",
+   "max (curve scale)": 0.1435375053296425,
+   "median (curve scale)": 1.9266177548139206e-10,
+   "at (curve scale)": [
     0,
     7,
     0,
     47
    ],
-   "finite": true,
    "status": "FLAG"
   },
   "input_keys": {
@@ -397,17 +415,26 @@
     8,
     1
    ],
-   "max": 0.0002785638662285477,
-   "median": 1.5285764464685079e-06,
-   "max / rtol": 2.785638662285477,
-   "median / rtol": 0.015285764464685077,
+   "max": 0.00010434229282882342,
+   "median": 5.730571409857673e-07,
+   "max / rtol": 1.0434229282882341,
+   "median / rtol": 0.005730571409857673,
    "at": [
+    0,
+    3,
+    7,
+    0
+   ],
+   "finite": true,
+   "scale": "quantity over k and a",
+   "max (curve scale)": 0.0002785638662285477,
+   "median (curve scale)": 1.5285764464685079e-06,
+   "at (curve scale)": [
     0,
     3,
     1,
     0
    ],
-   "finite": true,
    "status": "ok"
   },
   "reio_jvp_value": {
@@ -419,9 +446,9 @@
     1
    ],
    "max": 6.899940529116857e-07,
-   "median": 3.69317339603876e-08,
+   "median": 1.517112845577348e-09,
    "max / rtol": 0.0068999405291168565,
-   "median / rtol": 0.000369317339603876,
+   "median / rtol": 1.517112845577348e-05,
    "at": [
     0,
     4,
@@ -429,6 +456,15 @@
     0
    ],
    "finite": true,
+   "scale": "quantity over k and a",
+   "max (curve scale)": 6.899940529116857e-07,
+   "median (curve scale)": 3.69317339603876e-08,
+   "at (curve scale)": [
+    0,
+    4,
+    7,
+    0
+   ],
    "status": "ok"
   },
   "reio_keep": {
@@ -451,17 +487,26 @@
     8,
     1
    ],
-   "max": 5.438693174581988e-06,
-   "median": 6.391783974268021e-08,
-   "max / rtol": 0.05438693174581988,
-   "median / rtol": 0.0006391783974268021,
+   "max": 4.660952466061233e-06,
+   "median": 3.2045389705926538e-09,
+   "max / rtol": 0.04660952466061233,
+   "median / rtol": 3.2045389705926535e-05,
    "at": [
+    0,
+    4,
+    7,
+    0
+   ],
+   "finite": true,
+   "scale": "quantity over k and a",
+   "max (curve scale)": 5.438693174581988e-06,
+   "median (curve scale)": 6.391783974268021e-08,
+   "at (curve scale)": [
     0,
     4,
     4,
     0
    ],
-   "finite": true,
    "status": "ok"
   },
   "stats_jvp_pk_accepted_steps": {
