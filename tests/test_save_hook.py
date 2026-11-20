@@ -14,7 +14,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
+from modax import _target
+from modax._target import cuda
 
 from modax import Rodas5P, Tsit5, solve
 from modax._sensitivity import SensitivitySpec, quantity_hook
@@ -174,8 +175,13 @@ def test_quantities_differentiate_like_the_history(quantities, n_out, method):
                 argnums=argnum,
             )
         )(y0, params)
+        # The CPU target's derivatives are differences, good to about 1e-8 of
+        # the quantities' scale: an entry passing through zero misses 1e-9.
         np.testing.assert_allclose(
-            np.asarray(hooked), np.asarray(expected), rtol=1e-6, atol=1e-9
+            np.asarray(hooked),
+            np.asarray(expected),
+            rtol=1e-6,
+            atol=1e-8 if _target.TARGET == "cpu" else 1e-9,
         )
 
 

@@ -13,7 +13,7 @@ from tests.benchmark_helpers import (
 # guard is not belt and braces: without it `numba_cuda_mlir` raises
 # `CudaSupportError` at driver init and the whole file *fails* on a machine
 # with no GPU rather than skipping, which is what the rest of the suite does.
-cuda = pytest.importorskip("numba_cuda_mlir.cuda")
+from modax._target import cuda  # noqa: E402
 
 pytestmark = pytest.mark.skipif(not cuda.is_available(), reason="CUDA required")
 

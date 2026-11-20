@@ -12,15 +12,16 @@ import jax
 import numpy as np
 import numpy.typing as npt
 from jax.typing import ArrayLike
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
-from numba_cuda_mlir.numba_cuda.types import Type
+from modax._target import TARGET, cuda, types
+from modax._target import DeviceFunction as MLIRDispatcher
+from modax._target import Type
 
 from modax._compile_once import install as _compile_callees_once
 from modax._jax_numba_custom_call import ABI_ARRAY, ABI_SCALAR_F64, ABI_SCALAR_I32
 
 # numba-cuda-mlir compiles every device callee twice without it (modax._compile_once)
-_compile_callees_once()
+if TARGET == "cuda":
+    _compile_callees_once()
 
 OdeFn: TypeAlias = (
     Callable[[Sequence[float], float, Sequence[float]], tuple[float, ...]]

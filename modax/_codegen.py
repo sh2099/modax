@@ -13,8 +13,8 @@ import hashlib
 import linecache
 from typing import Mapping, Sequence
 
-from numba_cuda_mlir import cuda
-from numba_cuda_mlir.descriptor import MLIRDispatcher
+from modax._target import cuda
+from modax._target import DeviceFunction as MLIRDispatcher
 
 
 def compile_device_source(

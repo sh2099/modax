@@ -14,7 +14,7 @@ Closed form:    y(t) = forcing * (lambda * t - 1 + exp(-lambda t)) / lambda**2
 import jax
 import numpy as np
 import pytest
-from numba_cuda_mlir import cuda
+from modax._target import cuda
 
 from modax import solve
 

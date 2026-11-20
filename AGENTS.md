@@ -744,6 +744,38 @@ stiff sensitivity system; this is what to know before touching the code.
   published quantities (and its sensitivities) against the joint solve;
   `tests/test_split.py` the pattern split.
 
+### The CPU target (`modax/_target.py`, `modax/_differences.py`)
+
+Without `numba_cuda_mlir` and `numba_enzyme` (macOS has neither), or with
+`MODAX_TARGET=cpu`, the kernels compile with plain numba. `_target.py` decides
+at import and exports `cuda`, `types` and the dispatcher class every other
+module imports from it; on CUDA they are numba-cuda-mlir's own.
+
+- **The kernels' source does not differ between the targets.** A kernel is
+  called once per trajectory on that trajectory's rows of every array
+  (`ensemble_driver`), so `cuda.blockIdx`, `cuda.threadIdx` and `cuda.grid`
+  are zero and a warp is one lane: `cuda.ballot_sync` is the lane's own
+  predicate and `cuda.any_sync` returns it. Keep it that way: a change to a
+  kernel that needs a CPU branch cannot be checked where it matters.
+- **Threads claim trajectories** from an atomic counter, since trajectories
+  differ widely in cost and numba's default layer splits a loop statically.
+- **Derivatives are finite differences.** The Jacobian has a writer of its
+  own (`make_difference_jacobian` in `_rodas5P.py`): forward differences by
+  colour, each column stepped by its own size, a group redone backwards when
+  the probe is non-finite. Enzyme's sweeps are central differences behind
+  the same calling convention (`_differences.py`).
+- **The launch appends two columns to the parameter row** (`atol / rtol` and
+  the first step), which the difference steps read as the scale of a state
+  or a time near zero. The hierarchy kernel copies them to the end of its
+  local row, the one place its generated text depends on the target.
+- **The six Hermite coefficients of a quantity are sized together**
+  (`set_parameter_groups`): a quantity's value passes through zero while its
+  other coefficients do not.
+- `MODAX_SERIAL=1 NUMBA_BOUNDSCHECK=1` is the debug mode. An exception or an
+  out-of-bounds index inside the parallel loop is silent.
+- Accuracy is about 1e-8 of the quantities' scale, not rounding.
+  `tests/test_cpu_target.py` checks each piece against JAX autodiff.
+
 ### Kernel cache (`modax/_kernel_cache.py`)
 
 - `solve(..., cache=True)` keeps the compiled kernel on disk under numba's

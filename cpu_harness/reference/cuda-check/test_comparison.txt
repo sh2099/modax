@@ -1,0 +1,38 @@
+counts a: {'PASSED': 216, 'FAILED': 2, 'SKIPPED': 2} total 220
+counts b: {'PASSED': 216, 'FAILED': 2, 'SKIPPED': 30} total 248
+
+tests with different outcome: 28
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_cpu_stand_in_is_not_numba_cuda
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_difference_step_over_a_guard_is_taken_the_other_way
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_a_division_by_zero_does_not_cost_the_other_trajectories
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_an_incomplete_cuda_stack_is_the_cpu_target[missing0]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_an_incomplete_cuda_stack_is_the_cpu_target[missing1]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_an_incomplete_cuda_stack_is_the_cpu_target[missing2]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_jacobian_gives_the_rate_along_a_parameter_seed
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_jacobian_matches_autodiff[grid]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_jacobian_matches_autodiff[packed]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[all-flow-all]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[all-time-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[flow-flow-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[flow-flow-state]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[parameters-state-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_second_tangent_matches_autodiff[state-state-None]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[all]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[flow]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[parameters]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[small state]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[state]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_matches_autodiff[time]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_difference_tangent_reads_only_the_state_of_an_augmented_vector
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_each_trajectory_gets_the_answer_it_gets_alone[method0]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_each_trajectory_gets_the_answer_it_gets_alone[method1]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_grouped_parameters_are_sized_by_the_largest_of_the_group
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_robertson_matches_radau[fp32]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_robertson_matches_radau[fp64]
+  ABSENT   -> SKIPPED   tests/test_cpu_target.py::test_the_cpu_target_can_be_forced_beside_a_complete_cuda_stack
+
+not passing, same outcome in both:
+  FAILED   tests/test_blackwell.py::test_an_explicit_target_is_validated_as_numba_enzyme_does
+  SKIPPED  tests/test_blackwell.py::test_solves_and_differentiates_on_blackwell[rodas5P]
+  SKIPPED  tests/test_blackwell.py::test_solves_and_differentiates_on_blackwell[tsit5]
+  FAILED   tests/test_hierarchy.py::test_the_sensitivities_match_the_joint_solve

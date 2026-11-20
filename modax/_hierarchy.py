@@ -74,12 +74,12 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import numpy as np
-from numba_cuda_mlir import cuda, types
-from numba_cuda_mlir.descriptor import MLIRDispatcher
+from modax._target import N_DRIVER_COLUMNS, TARGET, cuda, types
+from modax._target import DeviceFunction as MLIRDispatcher
 
 from modax import _tsit5 as T
 from modax._codegen import compile_device_source
-from modax._kernel_cache import enable_content_cache
+from modax._differences import set_parameter_groups
 from modax._methods import (
     TSIT5_STABILITY_SIZE,
     Auto,
@@ -90,7 +90,12 @@ from modax._methods import (
     method_parts,
     option_or,
 )
-from modax._numba_common import SAFETY, PIDGains, as_cuda_device
+from modax._numba_common import (
+    SAFETY,
+    PIDGains,
+    as_cuda_device,
+    make_cuda_local_vector_writer,
+)
 from modax._sensitivity import (
     SensitivitySpec,
     make_quantity_second_tangent,
@@ -1005,6 +1010,19 @@ def _block_functions(
     lu_dtype = np.float32 if meth.lu_fp32 else np.float64
     rhs = _wrap_rhs(plan, bp)
     out_fn = _wrap_outputs(plan, bp)
+    # The six Hermite coefficients of a quantity are sized together where
+    # derivatives are differences (modax._differences.set_parameter_groups).
+    groups = list(range(P_LOCAL))
+    for up in plan.blocks:
+        if up.hslot >= 0:
+            for j in range(up.block.n_quantities):
+                first = hermite_slot(up.hslot, j)
+                for c in range(first, first + 6):
+                    groups[c] = first
+    if TARGET == "cpu":
+        set_parameter_groups(rhs, P_LOCAL, tuple(groups))
+        if out_fn is not None:
+            set_parameter_groups(out_fn, P_LOCAL, tuple(groups))
     tangent = make_tangent(rhs, n, P_LOCAL)
     # None where the block has no use for them; the device code calls them
     # only in branches it compiles for blocks that do, which ty cannot see.
@@ -1295,23 +1313,37 @@ def _block_functions(
         def clear(lu):
             pass
 
-    jac = R._make_literal_seed_jacobian(
-        n_vars=n,
-        n_params=P_LOCAL,
-        n_colours=structure.n_colours,
-        store_table=store,
-        namespace=dict(
-            cuda=cuda,
-            float64=types.float64,
-            tangent_of=tangent,
-            colour_seeds=structure.seed_table(P_LOCAL),
+    if TARGET == "cpu":
+        jac = R.make_difference_jacobian(
+            ode_write=make_cuda_local_vector_writer(rhs, n),
+            structure=structure,
+            pattern=bp.pattern,
             clear_matrix=clear,
             lu_dtype=lu_dtype,
-        ),
-        inline="never",
-        batch=structure.n_colours + 1 + n_reads,
-        coupling=n_reads,
-    )
+            n_params=P_LOCAL,
+            context=P_LOCAL,
+            coupling=n_reads,
+            slot_of=slots.slot,
+            groups=tuple(groups),
+        )
+    else:
+        jac = R._make_literal_seed_jacobian(
+            n_vars=n,
+            n_params=P_LOCAL,
+            n_colours=structure.n_colours,
+            store_table=store,
+            namespace=dict(
+                cuda=cuda,
+                float64=types.float64,
+                tangent_of=tangent,
+                colour_seeds=structure.seed_table(P_LOCAL),
+                clear_matrix=clear,
+                lu_dtype=lu_dtype,
+            ),
+            inline="never",
+            batch=structure.n_colours + 1 + n_reads,
+            coupling=n_reads,
+        )
 
     AUTO = meth.kind == "auto"
     if AUTO:
@@ -2059,7 +2091,10 @@ def _emit_kernel(
     w(1, "times = times_all[t_row : t_row + n_save]")
     w(1, "tf = times[n_save - 1]")
     w(1, "dt_init = dt0 if dt0 > 0.0 else (tf - times[0]) * 1e-6")
-    w(1, f"p_local = cuda.local.array({P}, np.float64)")
+    # On the CPU the row ends with the columns the launch appends for the
+    # finite-difference Jacobian (modax._target.ensemble_driver).
+    extra = N_DRIVER_COLUMNS if TARGET == "cpu" else 0
+    w(1, f"p_local = cuda.local.array({P + extra}, np.float64)")
     w(1, f"pbuf = cuda.local.array({P}, np.float64)")
     w(
         1,
@@ -2075,6 +2110,8 @@ def _emit_kernel(
     w(2, "p_local[c] = 0.0")
     w(1, f"for c in range({n_params}):")
     w(2, "p_local[c] = params[i, c]")
+    for c in range(extra):
+        w(1, f"p_local[{P + c}] = params[i, {n_params + c}]")
     for bp in plan.blocks:
         if bp.hslot >= 0:
             w(1, f"p_local[{bp.hslot + 1}] = 1.0")
@@ -3140,7 +3177,9 @@ def make_hierarchy_kernel(
     if os.environ.get("MODAX_SPLIT_DUMP_MLIR"):
         jit_options["dump_mlir"] = True
     kernel = _compile_kernel(source, namespace, jit_options)
-    if options.cache:
+    if options.cache and TARGET == "cuda":
+        from modax._kernel_cache import enable_content_cache
+
         enable_content_cache(kernel)
     return kernel, tpb
 

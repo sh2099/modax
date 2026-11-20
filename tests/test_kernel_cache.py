@@ -1,8 +1,12 @@
 """The content digest keys a kernel on what it is built from, not on the process."""
 
 import numpy as np
+import pytest
 
-from modax._kernel_cache import content_digest
+# The cache is numba-cuda-mlir's, keyed here; the CPU target has none.
+pytest.importorskip("numba_cuda_mlir.caching")
+
+from modax._kernel_cache import content_digest  # noqa: E402
 
 
 def _make(scale, table):
