@@ -14,6 +14,7 @@ imported by the package.
 | `run_discoeb_tests.py` | Runs DISCO-EB's own test suite on the CPU target. |
 | `make_gpu_reference.py` | Run on a CUDA machine with DISCO-EB's own environment: records P(k), histories, `solve_eb`, derivatives, thermal histories and step counts on the test suite's cosmologies. |
 | `discoeb21_derivatives.py`, `discoeb21_timing.py` | DISCO-EB 2.1's derivatives against tight central differences, and its times; the numbers are in `results/discoeb_2.1.json` and below. |
+| `make_gpu_reference_21.py`, `compare_with_gpu_21.py` | The same for DISCO-EB 2.1 on modax 0.5: one script that runs unchanged on a GPU (stock environment, no stand-in) and on the CPU target, and a numpy-only comparison of two records. See "DISCO-EB 2.1 against a GPU". |
 | `compare_with_gpu.py` | Compares the CPU target with that record on identical inputs. Writes `results/gpu_comparison.json`. |
 | `reference/` | `cuda-check/`: see below. Also the record from DISCO-EB 2.0.1 on modax 0.3.0 on a Tesla P100 (2026-11-13), with its package list and test log. The `.npz` (14 MB) is not in git. |
 
@@ -175,6 +176,77 @@ which is the stand-in, so the 28 tests marked `gpu` run on the CPU.
   No change local to the CPU layer fixed it (one-sided differences across a
   jump, per-state step floors and other step sizes were each tried and
   measured); use Enzyme for DISCO-EB 2.1 derivatives.
+
+## DISCO-EB 2.1 against a GPU
+
+`make_gpu_reference_21.py OUT.npz` writes one record of fixed inputs, all
+in the file (a seeded generator, fixed wave numbers and scale factors): P(k)
+of 32 perturbed LCDM cosmologies x 64 modes at the default thermal weight and
+at 0.1, of the reference cosmology, one `LCDM_MNU` and one `W0WACDM`; 18 kept
+quantities of the reference over 48 scale factors at 8 modes (states, the
+metric's `R`, `alpha`, `aH`, and the thermal history `tau`, `xe`, `Tmat`,
+`cs2`, `opacity`, `kappa`), and of `LCDM_MNU` with neutrino multipoles;
+`jacfwd` of P(k) in `omega_c`, `omega_b`, `n_s`, `A_s`, `N_eff` with and
+without `split_derivatives`, a `jvp`, `vmap(jacfwd)` and `vmap` over three
+cosmologies beside the same one at a time; a reionization case and its
+`jvp` in `z_re`; per-trajectory step counts of the plain and the joint
+launch; versions, device, target and cold and warm times per section. On a
+4 GB card it stays at 2048 trajectories a launch and five columns.
+On the Mac it takes about 4 minutes (Enzyme); `results/cpu_reference_2.1.npz`
+(280 kB) is that record, the CPU side of the comparison.
+
+```bash
+python make_gpu_reference_21.py gpu_reference_2.1.npz                                # on the GPU
+../modax-0.5/cpu_harness/disco --modax 0.5 ../modax-0.5/cpu_harness/make_gpu_reference_21.py cpu.npz
+python compare_with_gpu_21.py cpu.npz gpu_reference_2.1.npz [out.json]               # numpy only
+```
+
+The comparison measures each element against the largest magnitude of its
+series (one quantity at one mode over the scale factors, one P(k) curve,
+one derivative column) and reports it in units of `rtol` (1e-4); its
+docstring gives and justifies the gates. Two Enzyme records made on the Mac
+are bitwise identical except where noted below; the differences engine
+against Enzyme passes the values and flags the derivatives, as above.
+
+**`vmap` over cosmologies reads error weights past their end.** solve_eb
+gives modax `(n_traj, n_vars)` error weights for one cosmology's 64 modes;
+`jax.vmap` over three cosmologies folds 192 trajectories into one launch,
+and modax's `prepare_inputs` passes a 2-D array through without checking it
+against the ensemble (upstream code, `_jax_common.py` and
+`build_error_weights` in `_numba_common.py`, unchanged here). The kernel then
+reads the weights of trajectories 64 and beyond from past the array: on the
+CPU target the vmapped `jacfwd`'s rows after the first are garbage, different
+in every process. modax alone shows it with any 2-D `error_weights` under
+`jax.vmap(jax.jacfwd(f))`. `jax.vmap` of the plain P(k) over the same three
+raises modax's "vmap over an already-ensembled y0 is not supported", so the
+derivative is the only batched path, and it is DISCO-EB's documented one.
+The record keeps both forms, and the comparison prints the self-check; what
+a GPU reads there is for its record to say.
+
+## The CUDA path of this branch against upstream (`reference/cuda-check-0.5/`)
+
+`scripts/` holds what shows that on CUDA this branch is upstream v0.5.0: one
+interpreter (DISCO-EB 2.1's stock environment) and two source trees put
+first on the path, `a/` = v0.5.0 and `b/` = this branch, from one tarball
+(`scripts/make_tarball.sh OUT.tar.gz`). `runner.py` refuses a modax that is
+not the chosen tree and checks the side (`b` has `modax._target` with
+`TARGET == "cuda"` and numba-cuda-mlir's own `cuda`; `a` has no `_target`).
+Every run has an empty `NUMBA_CACHE_DIR` of its own under the output
+directory: modax's on-disk kernel cache keys a kernel on a digest of its
+generated source, closures, globals and the numba-cuda-mlir/numba-enzyme
+versions, not on modax's version, so two trees generating the same kernel
+would load each other's. Drivers, each `PY A B OUT`:
+
+| | What | Compared |
+|---|---|---|
+| `d2_env.sh` | which modax, versions, device; the installed wheel against `a/` file by file (`check_installed.py`) | |
+| `d2_solves.sh` | `solves.py` (Robertson, Lorenz, the hierarchy chain, a split, a sparse chain, save hooks, jvp and jacfwd with and without `max_directions_per_thread`, and a small DISCO-EB P(k) and jacfwd) upstream, branch, upstream, branch | bitwise, `cmp_npz.py`: across sides and run to run |
+| `d2_kernels.sh` | `dump_kernels.py`: hierarchy kernel source, every generated device function, and a sha256 of each launched kernel's `inspect_asm` / `inspect_llvm` if numba-cuda-mlir gives one | `diff -r` |
+| `d2_tests.sh` | each side's own `pytest tests -v -rA` | test by test, `cmp_tests.py` |
+
+`MC_LOCAL_TEST=1` lets both trees be the branch on its CPU target, which is
+how these were tested on the Mac: the logic, the cache separation and the
+comparisons, not anything CUDA does.
 
 ## The CUDA path, checked on a GPU
 
