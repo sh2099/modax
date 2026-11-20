@@ -1,1 +1,3 @@
 *.npz
+# small enough to keep: the DISCO-EB 2.1 GPU record (calx069, RTX A400)
+!gpu_reference_2.1.npz

@@ -1,0 +1,576 @@
+{
+ "files": [
+  "results/cpu_reference_2.1.npz",
+  "/private/tmp/claude-501/-Users-samhewson-Documents-PhD-code-DISCO-EB-lawrence/276482bf-cce1-4882-8682-5052a45fb517/scratchpad/d/gpu_reference_2.1.npz"
+ ],
+ "meta": {
+  "ours": {
+   "target": {
+    "CPU_DERIVATIVES": "enzyme",
+    "TARGET": "cpu"
+   },
+   "gpu": null,
+   "cpu": {
+    "count": 14,
+    "machine": "arm64",
+    "processor": "arm"
+   },
+   "jax_device": {
+    "kind": "cpu",
+    "platform": "cpu",
+    "repr": "CpuDevice(id=0)"
+   },
+   "versions": {
+    "cuda-bindings": null,
+    "cuda-core": null,
+    "cuda-pathfinder": null,
+    "disco-eb": null,
+    "jax": "0.10.2",
+    "jax-cuda12-pjrt": null,
+    "jax-cuda12-plugin": null,
+    "jax-cuda13-pjrt": null,
+    "jax-cuda13-plugin": null,
+    "jaxlib": "0.10.2",
+    "llvmlite": "0.44.0",
+    "modax-solvers": null,
+    "numba": "0.61.2",
+    "numba-cuda-mlir": null,
+    "numba-enzyme-cuda": "0.3.1",
+    "numpy": "2.2.6",
+    "nvidia-cuda-nvrtc": null,
+    "nvidia-nvjitlink": null,
+    "scipy": "1.18.0"
+   },
+   "discoeb_git": "v2.1.0",
+   "host": "user-43-35.vpn.ast.private.cam.ac.uk",
+   "errors": {
+    "vmap_values": "Traceback (most recent call last):\n  File \"/Users/samhewson/Documents/PhD/code/modax-0.5/cpu_harness/make_gpu_reference_21.py\", line 78, in deco\n    fn()\n  File \"/Users/samhewson/Documents/PhD/code/modax-0.5/cpu_harness/make_gpu_reference_21.py\", line 312, in _vmap_values\n    A[\"vmap_pk\"] = f64(cold_and_warm(\"vmap pk 3 cosmologies\", lambda: jax.vmap(pk_of)(batch)))\n                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/samhewson/Documents/PhD/code/modax-0.5/cpu_harness/make_gpu_reference_21.py\", line 97, in cold_and_warm\n    jax.block_until_ready(fn())\n                          ^^^^\n  File \"/Users/samhewson/Documents/PhD/code/modax-0.5/cpu_harness/make_gpu_reference_21.py\", line 312, in <lambda>\n    A[\"vmap_pk\"] = f64(cold_and_warm(\"vmap pk 3 cosmologies\", lambda: jax.vmap(pk_of)(batch)))\n                                                                      ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/samhewson/Documents/PhD/code/modax-0.5/cpu_harness/make_gpu_reference_21.py\", line 286, in pk_of\n    return spectrum(c, solve_eb(c, K, [1.0], keep=PK_KEEP, thermo_weight=0.1, **options)[0])\n                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/samhewson/Documents/PhD/code/DISCO-EB-2.1/src/discoeb/solver/_solver.py\", line 202, in solve_eb\n    _, out = _launch(\n             ^^^^^^^^\n  File \"/Users/samhewson/Documents/PhD/code/DISCO-EB-2.1/src/discoeb/solver/_kernel.py\", line 461, in _launch\n    return modax_solve(\n           ^^^^^^^^^^^^\n  File \"/Users/samhewson/Documents/PhD/code/modax-0.5/modax/_solve.py\", line 252, in solve\n    hist, quantities, stats = make_sensitivity_solver(\n                              ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/samhewson/Documents/PhD/code/modax-0.5/modax/_sensitivity.py\", line 557, in solve_fn\n    return primal_solver(y0, t_span, combine_params(leaves))\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/samhewson/Documents/PhD/code/modax-0.5/modax/_jax_common.py\", line 258, in _solve_vmap\n    y0_arr = _broadcast_for_vmap(y0, y0_batched, axis_size, \"y0\")\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/samhewson/Documents/PhD/code/modax-0.5/modax/_jax_common.py\", line 208, in _broadcast_for_vmap\n    raise NotImplementedError(\nNotImplementedError: vmap over an already-ensembled y0 is not supported; call the solver with batched y0/params directly instead.\n--------------------\nFor simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.\n"
+   }
+  },
+  "theirs": {
+   "target": {
+    "TARGET": "cuda",
+    "note": "no modax._target: upstream modax"
+   },
+   "gpu": {
+    "compute_capability": [
+     8,
+     6
+    ],
+    "model": "NVIDIA RTX A400"
+   },
+   "cpu": null,
+   "jax_device": {
+    "kind": "NVIDIA RTX A400",
+    "platform": "gpu",
+    "repr": "CudaDevice(id=0)"
+   },
+   "versions": {
+    "cuda-bindings": "13.4.1",
+    "cuda-core": "1.1.0",
+    "cuda-pathfinder": "1.5.6",
+    "disco-eb": "2.1.0",
+    "jax": "0.10.2",
+    "jax-cuda12-pjrt": null,
+    "jax-cuda12-plugin": null,
+    "jax-cuda13-pjrt": "0.10.2",
+    "jax-cuda13-plugin": "0.10.2",
+    "jaxlib": "0.10.2",
+    "llvmlite": "0.50.0",
+    "modax-solvers": "0.5.0",
+    "numba": "0.68.1",
+    "numba-cuda-mlir": "0.5.1",
+    "numba-enzyme-cuda": "0.3.1",
+    "numpy": "2.5.4",
+    "nvidia-cuda-nvrtc": "13.2.78",
+    "nvidia-nvjitlink": "13.4.52",
+    "scipy": "1.18.0"
+   },
+   "discoeb_git": "unavailable: FileNotFoundError(2, 'No such file or directory')",
+   "host": "calx069.ast.cam.ac.uk",
+   "errors": {
+    "vmap_values": "Traceback (most recent call last):\n  File \"/tmp/sh2099-eb21/mc/b/cpu_harness/make_gpu_reference_21.py\", line 78, in deco\n    fn()\n    ~~^^\n  File \"/tmp/sh2099-eb21/mc/b/cpu_harness/make_gpu_reference_21.py\", line 366, in _vmap_values\n    cold_and_warm(\"vmap pk 3 cosmologies\", lambda: jax.vmap(pk_of)(batch))\n    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/sh2099-eb21/mc/b/cpu_harness/make_gpu_reference_21.py\", line 97, in cold_and_warm\n    jax.block_until_ready(fn())\n                          ~~^^\n  File \"/tmp/sh2099-eb21/mc/b/cpu_harness/make_gpu_reference_21.py\", line 366, in <lambda>\n    cold_and_warm(\"vmap pk 3 cosmologies\", lambda: jax.vmap(pk_of)(batch))\n                                                   ~~~~~~~~~~~~~~~^^^^^^^\n  File \"/tmp/sh2099-eb21/mc/b/cpu_harness/make_gpu_reference_21.py\", line 325, in pk_of\n    c, solve_eb(c, K, [1.0], keep=PK_KEEP, thermo_weight=0.1, **options)[0]\n       ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/sh2099-eb21/DISCO-EB/src/discoeb/solver/_solver.py\", line 202, in solve_eb\n    _, out = _launch(\n             ~~~~~~~^\n        prepared,\n        ^^^^^^^^^\n    ...<12 lines>...\n        thermo_weight=thermo_weight,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/tmp/sh2099-eb21/DISCO-EB/src/discoeb/solver/_kernel.py\", line 461, in _launch\n    return modax_solve(\n        prepared.ode_fn,\n    ...<15 lines>...\n        **extra,\n    )\n  File \"/tmp/sh2099-eb21/DISCO-EB/.venv/lib/python3.13/site-packages/modax/_solve.py\", line 251, in solve\n    hist, quantities, stats = make_sensitivity_solver(\n                              ~~~~~~~~~~~~~~~~~~~~~~~~\n    ...<3 lines>...\n        [leaf.shape[-1] for leaf in leaves],\n        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n    )(y0, t_span, *leaves)\n    ~^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/sh2099-eb21/DISCO-EB/.venv/lib/python3.13/site-packages/modax/_sensitivity.py\", line 536, in solve_fn\n    return primal_solver(y0, t_span, combine_params(leaves))\n  File \"/tmp/sh2099-eb21/DISCO-EB/.venv/lib/python3.13/site-packages/modax/_jax_common.py\", line 258, in _solve_vmap\n    y0_arr = _broadcast_for_vmap(y0, y0_batched, axis_size, \"y0\")\n  File \"/tmp/sh2099-eb21/DISCO-EB/.venv/lib/python3.13/site-packages/modax/_jax_common.py\", line 208, in _broadcast_for_vmap\n    raise NotImplementedError(\n    ...<2 lines>...\n    )\nNotImplementedError: vmap over an already-ensembled y0 is not supported; call the solver with batched y0/params directly instead.\n--------------------\nFor simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.\n"
+   }
+  }
+ },
+ "thresholds (in rtol)": {
+  "rtol": 0.0001,
+  "values max, median": [
+   10.0,
+   1.0
+  ],
+  "derivatives max, median": [
+   50.0,
+   5.0
+  ],
+  "accepted steps": 0.1
+ },
+ "arrays": {
+  "a_grid": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "deriv_names": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "deriv_theta0": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "hist_k": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "hist_keep": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "hist_mnu": {
+   "kind": "value",
+   "shape": [
+    1,
+    6,
+    8,
+    48
+   ],
+   "max": 0.00036180790010901636,
+   "median": 6.205869478869895e-10,
+   "max / rtol": 3.6180790010901633,
+   "median / rtol": 6.205869478869895e-06,
+   "at": [
+    0,
+    5,
+    7,
+    23
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "hist_mnu_keep": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "hist_planck": {
+   "kind": "value",
+   "shape": [
+    1,
+    18,
+    8,
+    48
+   ],
+   "max": 0.1435375053296425,
+   "median": 1.9266177548139206e-10,
+   "max / rtol": 1435.3750532964248,
+   "median / rtol": 1.9266177548139205e-06,
+   "at": [
+    0,
+    7,
+    0,
+    47
+   ],
+   "finite": true,
+   "status": "FLAG"
+  },
+  "input_keys": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "jacfwd_pk": {
+   "kind": "derivative",
+   "shape": [
+    64,
+    5
+   ],
+   "max": 7.111533981437339e-05,
+   "median": 1.745053878973322e-07,
+   "max / rtol": 0.7111533981437339,
+   "median / rtol": 0.001745053878973322,
+   "at": [
+    37,
+    1
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "jacfwd_pk_split": {
+   "kind": "derivative",
+   "shape": [
+    64,
+    5
+   ],
+   "max": 7.111533981437339e-05,
+   "median": 1.6858981177867983e-07,
+   "max / rtol": 0.7111533981437339,
+   "median / rtol": 0.0016858981177867982,
+   "at": [
+    37,
+    1
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "jvp_pk_tangent": {
+   "kind": "derivative",
+   "shape": [
+    64
+   ],
+   "max": 1.807579912316804e-05,
+   "median": 2.9426143485133127e-07,
+   "max / rtol": 0.1807579912316804,
+   "median / rtol": 0.0029426143485133125,
+   "at": [
+    37
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "jvp_pk_value": {
+   "kind": "value",
+   "shape": [
+    64
+   ],
+   "max": 1.472597482693826e-05,
+   "median": 6.659620118397391e-08,
+   "max / rtol": 0.1472597482693826,
+   "median / rtol": 0.0006659620118397391,
+   "at": [
+    37
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "k": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "lcdm32_inputs": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "lcdm32_omega_c": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "loop_jacfwd_pk": {
+   "kind": "derivative",
+   "shape": [
+    3,
+    64,
+    5
+   ],
+   "max": 0.00018109336440460798,
+   "median": 1.6074869221854009e-07,
+   "max / rtol": 1.8109336440460797,
+   "median / rtol": 0.0016074869221854007,
+   "at": [
+    2,
+    37,
+    1
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "loop_pk": {
+   "kind": "value",
+   "shape": [
+    3,
+    64
+   ],
+   "max": 0.0001328611329756077,
+   "median": 3.772882950350226e-07,
+   "max / rtol": 1.3286113297560769,
+   "median / rtol": 0.003772882950350226,
+   "at": [
+    1,
+    36
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "mnu_param_names": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "mnu_param_values": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "pk_lcdm32_default": {
+   "kind": "value",
+   "shape": [
+    32,
+    64
+   ],
+   "max": 3.0306540644738638e-05,
+   "median": 1.821218747130966e-07,
+   "max / rtol": 0.3030654064473864,
+   "median / rtol": 0.001821218747130966,
+   "at": [
+    9,
+    32
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "pk_lcdm32_tw01": {
+   "kind": "value",
+   "shape": [
+    32,
+    64
+   ],
+   "max": 0.0003515295083561757,
+   "median": 3.061032929962346e-07,
+   "max / rtol": 3.5152950835617567,
+   "median / rtol": 0.0030610329299623463,
+   "at": [
+    19,
+    35
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "pk_mnu_default": {
+   "kind": "value",
+   "shape": [
+    1,
+    64
+   ],
+   "max": 1.7856487482669042e-05,
+   "median": 1.1876984353314822e-07,
+   "max / rtol": 0.17856487482669042,
+   "median / rtol": 0.001187698435331482,
+   "at": [
+    0,
+    36
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "pk_planck_tw01": {
+   "kind": "value",
+   "shape": [
+    1,
+    64
+   ],
+   "max": 2.3711875588451045e-05,
+   "median": 5.686295414042205e-07,
+   "max / rtol": 0.23711875588451045,
+   "median / rtol": 0.005686295414042204,
+   "at": [
+    0,
+    26
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "pk_w0wa_default": {
+   "kind": "value",
+   "shape": [
+    1,
+    64
+   ],
+   "max": 2.3059921812384258e-05,
+   "median": 1.9038131918299523e-07,
+   "max / rtol": 0.23059921812384257,
+   "median / rtol": 0.0019038131918299522,
+   "at": [
+    0,
+    34
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "planck_param_names": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "planck_param_values": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "reio_jvp_tangent": {
+   "kind": "derivative",
+   "shape": [
+    1,
+    5,
+    8,
+    1
+   ],
+   "max": 0.0002785638662285477,
+   "median": 1.5285764464685079e-06,
+   "max / rtol": 2.785638662285477,
+   "median / rtol": 0.015285764464685077,
+   "at": [
+    0,
+    3,
+    1,
+    0
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "reio_jvp_value": {
+   "kind": "value",
+   "shape": [
+    1,
+    5,
+    8,
+    1
+   ],
+   "max": 6.899940529116857e-07,
+   "median": 3.69317339603876e-08,
+   "max / rtol": 0.0068999405291168565,
+   "median / rtol": 0.000369317339603876,
+   "at": [
+    0,
+    4,
+    7,
+    0
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "reio_keep": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "reio_param_names": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "reio_param_values": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "reio_values": {
+   "kind": "value",
+   "shape": [
+    1,
+    5,
+    8,
+    1
+   ],
+   "max": 5.438693174581988e-06,
+   "median": 6.391783974268021e-08,
+   "max / rtol": 0.05438693174581988,
+   "median / rtol": 0.0006391783974268021,
+   "at": [
+    0,
+    4,
+    4,
+    0
+   ],
+   "finite": true,
+   "status": "ok"
+  },
+  "stats_jvp_pk_accepted_steps": {
+   "kind": "steps",
+   "mean ours": 113.875,
+   "mean theirs": 113.65625,
+   "max |diff|": 5,
+   "status": "ok"
+  },
+  "stats_jvp_pk_loop_steps": {
+   "kind": "steps",
+   "mean ours": 269.8125,
+   "mean theirs": 269.296875,
+   "max |diff|": 21,
+   "status": "info"
+  },
+  "stats_jvp_pk_rejected_steps": {
+   "kind": "steps",
+   "mean ours": 3.5625,
+   "mean theirs": 3.671875,
+   "max |diff|": 4,
+   "status": "info"
+  },
+  "stats_pk_lcdm32_default_accepted_steps": {
+   "kind": "steps",
+   "mean ours": 96.35986328125,
+   "mean theirs": 96.24267578125,
+   "max |diff|": 7,
+   "status": "ok"
+  },
+  "stats_pk_lcdm32_default_loop_steps": {
+   "kind": "steps",
+   "mean ours": 319.57470703125,
+   "mean theirs": 317.955078125,
+   "max |diff|": 41,
+   "status": "info"
+  },
+  "stats_pk_lcdm32_default_rejected_steps": {
+   "kind": "steps",
+   "mean ours": 3.67041015625,
+   "mean theirs": 3.64208984375,
+   "max |diff|": 7,
+   "status": "info"
+  },
+  "stats_pk_lcdm32_tw01_accepted_steps": {
+   "kind": "steps",
+   "mean ours": 94.85595703125,
+   "mean theirs": 94.84716796875,
+   "max |diff|": 7,
+   "status": "ok"
+  },
+  "stats_pk_lcdm32_tw01_loop_steps": {
+   "kind": "steps",
+   "mean ours": 253.0205078125,
+   "mean theirs": 253.41748046875,
+   "max |diff|": 33,
+   "status": "info"
+  },
+  "stats_pk_lcdm32_tw01_rejected_steps": {
+   "kind": "steps",
+   "mean ours": 3.68310546875,
+   "mean theirs": 3.66162109375,
+   "max |diff|": 6,
+   "status": "info"
+  },
+  "vmap_jacfwd_pk": {
+   "kind": "derivative",
+   "shape": [
+    3,
+    64,
+    5
+   ],
+   "max": 1.0,
+   "median": 6.089631922571331e-11,
+   "max / rtol": 10000.0,
+   "median / rtol": 6.089631922571331e-07,
+   "at": [
+    1,
+    2,
+    0
+   ],
+   "finite": true,
+   "status": "FLAG"
+  },
+  "vmap_jacfwd_theta": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "w0wa_param_names": {
+   "status": "ok",
+   "kind": "input"
+  },
+  "w0wa_param_values": {
+   "status": "ok",
+   "kind": "input"
+  }
+ },
+ "self-checks": {
+  "ours: vmap_jacfwd_pk vs loop_jacfwd_pk": 1.0,
+  "ours: jacfwd_pk_split vs jacfwd_pk": 0.0,
+  "theirs: vmap_jacfwd_pk vs loop_jacfwd_pk": 1.5456961067851567e+60,
+  "theirs: jacfwd_pk_split vs jacfwd_pk": 1.0946434500013117e-05
+ },
+ "summary": {
+  "flagged": {
+   "hist_planck": "FLAG",
+   "vmap_jacfwd_pk": "FLAG"
+  },
+  "n_arrays": 46,
+  "pass": false
+ }
+}
