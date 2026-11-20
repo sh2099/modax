@@ -1,0 +1,197 @@
+{
+ "date": "2026-11-20",
+ "machine": "Apple M4 Pro, 14 threads",
+ "modax": "0.5.0 with cpu-target-0.5 (bdcf722)",
+ "discoeb": "2.1.0 (6385553), unedited",
+ "environment": {
+  "enzyme": "enzyme-toolchain venv: Python 3.12, numba 0.61.2, llvmlite 0.44.0, numpy 2.2.6, jax 0.10.2, numba-enzyme-cuda 0.3.1, classy 3.3.4.0",
+  "differences": "the same interpreter with MODAX_CPU_DERIVATIVES=differences"
+ },
+ "discoeb_suite": {
+  "command": "cd DISCO-EB-2.1 && PYTHONDONTWRITEBYTECODE=1 ../modax-0.5/cpu_harness/disco --modax 0.5 -m pytest tests -m '' -p no:cacheprovider --benchmark-disable",
+  "gpu_gate": "tests/helpers._cuda_available() imports numba_cuda_mlir.cuda, which is the stand-in (discoeb_cpu): is_available() is True, so the 28 tests marked gpu run on the CPU",
+  "enzyme": {
+   "passed": 138,
+   "failed": 0,
+   "skipped": 1,
+   "skipped_reason": "test_models.py:357 needs ty (the dev group)"
+  },
+  "differences": {
+   "passed": 130,
+   "failed": 8,
+   "skipped": 1,
+   "failed_tests": {
+    "test_components.py::test_recfast_matches_class[N128]": "T_m or c_b^2 off in the switch window in 3 cosmologies, gate 2 (Enzyme passes)",
+    "test_observables.py::test_matter_power_spectrum_derivatives[two-columns]": "0.0055 against 0.005",
+    "test_observables.py::test_matter_power_spectrum_derivatives[five-columns]": "0.0055 against 0.005",
+    "test_observables.py::test_more_parameters_matter_power[z_re]": "1.4e31 against 0.01",
+    "test_solver.py::test_solve_eb_derivatives": "9.7e-4 against 5e-6",
+    "test_solver.py::test_reionization_derivative": "9.3e-5 against 9.8e-6",
+    "test_solver.py::test_components_from_outside_leave_the_solve_unchanged": "jvp along omega_x and omega_c 2.4e-3 apart, gate 1e-3",
+    "test_solver.py::test_the_solve_matches_lcdm_and_the_growth_in_the_fields_background": "a background field read at 8 modes agrees to 1.02e-6, gate 1e-6"
+   }
+  }
+ },
+ "derivatives_enzyme": {
+  "names": [
+   "omega_c",
+   "omega_b",
+   "n_s",
+   "A_s",
+   "N_eff"
+  ],
+  "P(k)": {
+   "reference: h 1e-3 vs 3e-4 at 1e-7": [
+    0.000825,
+    0.00387,
+    1.08e-06,
+    4.79e-13,
+    0.00558
+   ],
+   "reference: tol 1e-7 vs 1e-8 at h 1e-3": [
+    0.000286,
+    0.00186,
+    2.57e-07,
+    3.66e-07,
+    0.00185
+   ],
+   "reference seconds": 18.7,
+   "jacfwd default": [
+    0.00048,
+    0.000969,
+    3.43e-05,
+    6.5e-05,
+    0.000972
+   ],
+   "jacfwd default seconds cold, warm": [
+    30.0,
+    0.0514
+   ],
+   "jacfwd 1e-6": [
+    0.000501,
+    0.00109,
+    1.43e-06,
+    1.4e-06,
+    0.000989
+   ],
+   "jacfwd 1e-6 seconds cold, warm": [
+    0.0931,
+    0.0982
+   ]
+  },
+  "R": {
+   "reference: h 1e-3 vs 3e-4 at 1e-7": [
+    0.00066,
+    0.00523,
+    null,
+    null,
+    0.00365
+   ],
+   "reference: tol 1e-7 vs 1e-8 at h 1e-3": [
+    0.000191,
+    0.00246,
+    null,
+    null,
+    0.00104
+   ],
+   "reference seconds": 13.7,
+   "jacfwd default": [
+    0.000364,
+    0.00152,
+    null,
+    null,
+    0.000486
+   ],
+   "jacfwd default seconds cold, warm": [
+    28.9,
+    0.0626
+   ],
+   "jacfwd 1e-6": [
+    0.000378,
+    0.00152,
+    null,
+    null,
+    0.000473
+   ],
+   "jacfwd 1e-6 seconds cold, warm": [
+    0.123,
+    0.123
+   ]
+  },
+  "split_derivatives vs one thread (P(k), default)": [
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "vmap(jacfwd) row 0 vs single (P(k), default)": [
+   2.04e-16,
+   2.8e-07,
+   0.0,
+   0.0,
+   1.45e-10
+  ],
+  "jit(jacfwd) vs eager (P(k), default)": [
+   2.04e-16,
+   3.23e-16,
+   1.99e-16,
+   1.01e-16,
+   7.89e-17
+  ],
+  "jacfwd omega_c alone seconds warm": 0.0381,
+  "plain P(k) seconds warm": 0.0123,
+  "grad raises": "NotImplementedError: modax differentiates in forward mode only: use jax.jvp or jax.jacfwd. The solve integrates the derivative along each tangent direction, and reverse mode (jax.gr",
+  "vjp raises": "NotImplementedError: modax differentiates in forward mode only: use jax.jvp or jax.jacfwd. The solve integrates the derivative along each tangent direction, and reverse mode (jax.gr"
+ },
+ "timings_seconds": {
+  "enzyme N=1": {
+   "n": 1,
+   "first call": 16.4,
+   "warm": 0.00938,
+   "finite": true,
+   "jacfwd 1 parameters cold, warm": [
+    25.8,
+    0.0217
+   ],
+   "jacfwd 2 parameters cold, warm": [
+    27.5,
+    0.0296
+   ],
+   "jacfwd 5 parameters cold, warm": [
+    28.3,
+    0.0487
+   ]
+  },
+  "enzyme N=128": {
+   "n": 128,
+   "first call": 17.2,
+   "warm": 0.471,
+   "finite": true
+  },
+  "differences N=1": {
+   "n": 1,
+   "first call": 17.6,
+   "warm": 0.0158,
+   "finite": true,
+   "jacfwd 1 parameters cold, warm": [
+    27.2,
+    0.0955
+   ],
+   "jacfwd 2 parameters cold, warm": [
+    27.1,
+    0.157
+   ],
+   "jacfwd 5 parameters cold, warm": [
+    29.7,
+    0.266
+   ]
+  },
+  "differences N=128": {
+   "n": 128,
+   "first call": 18.8,
+   "warm": 1.15,
+   "finite": true
+  }
+ }
+}

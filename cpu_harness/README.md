@@ -13,6 +13,7 @@ imported by the package.
 | `discoeb_cpu.py` | Puts modax's CPU meanings of `cuda.jit`, `cuda.local.array`, `cuda.is_available` and the float types under the name `numba_cuda_mlir`. Call `install()` before `discoeb` builds a kernel. |
 | `run_discoeb_tests.py` | Runs DISCO-EB's own test suite on the CPU target. |
 | `make_gpu_reference.py` | Run on a CUDA machine with DISCO-EB's own environment: records P(k), histories, `solve_eb`, derivatives, thermal histories and step counts on the test suite's cosmologies. |
+| `discoeb21_derivatives.py`, `discoeb21_timing.py` | DISCO-EB 2.1's derivatives against tight central differences, and its times; the numbers are in `results/discoeb_2.1.json` and below. |
 | `compare_with_gpu.py` | Compares the CPU target with that record on identical inputs. Writes `results/gpu_comparison.json`. |
 | `reference/` | `cuda-check/`: see below. Also the record from DISCO-EB 2.0.1 on modax 0.3.0 on a Tesla P100 (2026-11-13), with its package list and test log. The `.npz` (14 MB) is not in git. |
 
@@ -123,14 +124,57 @@ Pro.
   which in 0.5's joint rows is the first direction; they now read them at
   the row's end (`_differences.driver_column`). On the sensitivity tests'
   problems the two engines' tangents agree to 1e-9 of their scale.
-- DISCO-EB 2.1, one LCDM cosmology, P(k) at 64 modes
-  (`solve_eb(..., keep=("delta_c", "delta_b"), thermo_weight=0.1)`): finite
-  under either engine, the two agreeing to about 1e-5; the value of a `jvp`
-  in `omega_c` is the plain solve's to 8e-5 under either. Its tangent with
-  Enzyme is a tight central difference's to 4e-4 of its scale; with finite
-  differences a few modes are off by up to 0.2 of the scale (0.5 with
-  double-precision RECFAST), not shrinking steadily with the tolerance.
-  Not yet understood.
+
+## DISCO-EB 2.1 on this branch (2026-11-20)
+
+DISCO-EB 2.1.0 (`6385553`, unedited), the toolchain's environment, Apple M4
+Pro; `results/discoeb_2.1.json` has every number. Its tests decide "GPU or
+not" by importing `numba_cuda_mlir.cuda` (`tests/helpers._cuda_available`),
+which is the stand-in, so the 28 tests marked `gpu` run on the CPU.
+`PYTHONDONTWRITEBYTECODE=1` keeps the checkout clean.
+
+- **Its suite with Enzyme: 138 passed, 1 skipped** (124 in the default
+  selection, 14 with `-m slow`; the skip needs `ty`).
+- **Derivatives with Enzyme.** `jacfwd` of P(k) and of `R` today at 64
+  modes in `omega_c`, `omega_b`, `n_s`, `A_s` and `N_eff`, against central
+  differences of plain solves at `rtol = atol = 1e-7`: within 1.5e-3 of each
+  column's scale at the default tolerance and at 1e-6 alike (P(k): 4.8e-4,
+  9.7e-4, 3.4e-5, 6.5e-5, 9.7e-4). That is the reference's own convergence
+  (h 1e-3 against 3e-4: up to 5.6e-3; `rtol` 1e-7 against 1e-8: up to
+  2.5e-3), not the tangents'. `split_derivatives=True` gives the same
+  numbers bitwise (the launch has `sens_error_control=False`, so the steps
+  are the plain solve's either way), `jax.vmap(jax.jacfwd(f))` the single
+  cosmology's to 3e-7, `jit` to rounding. `jax.grad` and `jax.vjp` raise
+  modax's forward-mode-only `NotImplementedError`.
+- **Times** (first call in a new process, then warm): P(k) of one
+  cosmology at 64 modes 16 s, 0.009 s; 128 cosmologies 17 s, 0.47 s.
+  `jacfwd` in 1, 2 and 5 parameters 26-28 s cold, then 0.022, 0.030 and
+  0.049 s warm: about 0.007 s a parameter beyond the first. With finite
+  differences: 0.016 s, 1.15 s, and 0.096, 0.16, 0.27 s.
+- **Finite differences are values only for DISCO-EB 2.1.** Its suite: 130
+  passed, 8 failed. Six derivative tests miss their gates, by from 10
+  percent (`test_matter_power_spectrum_derivatives`, both widths) to 33
+  orders of magnitude (`test_more_parameters_matter_power[z_re]`); two value
+  tests miss by step-sequence margins
+  (`test_recfast_matches_class[N128]`: three cosmologies straddle the T_m
+  switch against a gate of two; a background field read at eight modes
+  agrees to 1.02e-6 against 1e-6). The derivatives go wrong in the
+  recombination block: alone, with DISCO-EB's own inputs, its `x_H`
+  tangent is 34 times its scale off at the onset of hydrogen recombination,
+  where Enzyme is at the reference's accuracy (5e-2 there). RECFAST
+  switches on the state (`x_H` clamped at 1, `x_H` thresholds at 0.99999 and
+  0.9999999, the helium freeze at 1e-8, the Compton lock of `T_m`), and the
+  second differences step a state by `eps**(1/4)` of the *largest* state
+  (here `kappa`, about 1e6), straddling them: a hundred-times-shorter
+  second step brings `x_H` to 4e-2, a ten-times-longer one to 1, and
+  neither helps the other states. DISCO-EB runs its
+  joint launches with `sens_error_control=False`, so nothing rejects such a
+  step; with it on, the recombination block's tangents are Enzyme's, but the
+  whole system's differenced joint solve then never finishes. The error
+  depends on each mode's step sequence, which is why it is erratic in `k`.
+  No change local to the CPU layer fixed it (one-sided differences across a
+  jump, per-state step floors and other step sizes were each tried and
+  measured); use Enzyme for DISCO-EB 2.1 derivatives.
 
 ## The CUDA path, checked on a GPU
 
