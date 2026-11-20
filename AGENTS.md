@@ -791,9 +791,15 @@ module imports from it; on CUDA they are numba-cuda-mlir's own.
     (`make_difference_jacobian` in `_rodas5P.py`): forward differences by
     colour, each column stepped by its own size, a group redone backwards
     when the probe is non-finite. Enzyme's sweeps are central differences
-    behind the same calling convention (`_differences.py`). Accuracy is
-    about 1e-8 of the quantities' scale, not rounding; local arrays are
-    `np.zeros`.
+    behind the same calling convention (`_differences.py`); a second
+    difference whose corners land where the function is not finite
+    shortens its steps (`SHRINK_ATTEMPTS`). Accuracy is about 1e-8 of the
+    quantities' scale on smooth functions, not rounding; local arrays are
+    `np.zeros`. A difference cannot see past a switch on the state the way a
+    derivative does: on DISCO-EB 2.1, whose RECFAST switches on `x_H`,
+    `x_He` and `T_m` and whose joint launches have no sensitivity error
+    control, the differenced derivatives are wrong (values are right), so
+    use Enzyme there (`cpu_harness/README.md`).
 - **The launch appends three columns to the parameter row** (`atol / rtol`,
   the first step and `rtol`), which the difference steps read as the scale
   of a state or a time near zero. Enzyme reads none of them; they are
@@ -809,9 +815,18 @@ module imports from it; on CUDA they are numba-cuda-mlir's own.
   other coefficients do not. Only the differences read it.
 - `MODAX_SERIAL=1 NUMBA_BOUNDSCHECK=1` is the debug mode. An exception or an
   out-of-bounds index inside the parallel loop is silent.
-- `tests/test_cpu_target.py` checks the differences against JAX autodiff and
-  the engine choice; `tests/test_enzyme_cpu.py` checks the Enzyme sweeps to
-  rounding and skips without Enzyme. Run the suite under both engines.
+- `tests/test_cpu_target.py` checks the differences against JAX autodiff,
+  the launch's columns read at a joint row's end, the closed form of a
+  differenced joint solve on the plain kernels (in a subprocess under
+  `MODAX_CPU_DERIVATIVES=differences`), `max_directions_per_thread` on the
+  hierarchy, and the engine choice; `tests/test_enzyme_cpu.py` checks the
+  Enzyme sweeps to rounding and skips without Enzyme. Run the suite under
+  both engines.
+- `cpu_harness/` (not imported) runs DISCO-EB on this target, records it
+  against a GPU, and checks this branch's CUDA path against upstream;
+  `cpu_harness/reference/upstream-issues/` holds what that found in
+  upstream modax (2-D `error_weights` read past their end under `vmap`),
+  left unfixed here so the branch behaves as upstream does.
 
 ### Kernel cache (`modax/_kernel_cache.py`)
 

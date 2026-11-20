@@ -141,9 +141,13 @@ else differences with one warning), `enzyme` (fail without it) or
   with the pins, and `MODAX_ENZYME_TOOLS` points modax at them (see
   `cpu_harness/README.md`).
 
-Finite differences are good to about 1e-8 of a quantity's scale; Enzyme's
-derivatives are exact to rounding, and on stiff problems with sensitivities
-a solve is several times faster with them.
+Finite differences are good to about 1e-8 of a quantity's scale on smooth
+functions, but they cannot see past a switch on the state the way a
+derivative does. For DISCO-EB 2.1 they give the right values and wrong
+derivatives, so use Enzyme there. Enzyme's derivatives are exact to
+rounding, and on stiff problems with sensitivities a solve is several times
+faster with them. `cpu_harness/` runs DISCO-EB on the CPU target and records
+how it compares with a GPU; its README has the measurements.
 
 The documentation (Sphinx with MyST and autodoc) builds in an environment of
 its own, the package's CPU install plus the docs group:
