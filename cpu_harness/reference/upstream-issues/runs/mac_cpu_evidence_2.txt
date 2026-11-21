@@ -1,0 +1,46 @@
+RUNTIME MONKEYPATCH: modax._jax_common.build_error_weights wrapped (logs shapes; changes the array only where a test says)
+modax /Users/samhewson/Documents/PhD/code/modax-0.5/modax/__init__.py; device cpu:0
+
+1. observe: what build_error_weights is given and returns, and the launch's n
+  loop, (N, n_vars) weights: (given, n, n_vars, returned) = [((2, 3), 2, 3, (2, 3))]
+  vmap(jacfwd) over B=4, (N, n_vars) weights: [((2, 3), 2, 3, (2, 3)), ((2, 3), 8, 3, (2, 3))]
+
+   the bug as shipped (no change to the arrays):
+  (N, n_vars) ones, unchanged                                per row |diff| / scale 2.4e-01: 0.00e+00  9.50e-01  9.04e-01  8.63e-01
+  (n_vars,) ones, unchanged                                  per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+  no weights, unchanged                                      per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+
+2. intervene: the same mapped call, weights tiled to n rows at launch
+  (N, n_vars) ones, tiled to n at launch                     per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+  discriminator: (n_vars,) = [1, 1e-3, 1e2], unchanged       per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+  discriminator: the same values as (N, n_vars), unchanged   per row |diff| / scale 2.4e-01: 0.00e+00  9.50e-01  9.04e-01  8.63e-01
+  discriminator: as (N, n_vars), tiled to n at launch        per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+
+3. dose: weights padded to n rows with v; reference: single launches given v explicitly for b >= 1
+  pad v = 1.0                                                per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+                                                             what v does to an honest launch (row 1 vs weights 1): 0.0
+  pad v = 0.5                                                per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+                                                             what v does to an honest launch (row 1 vs weights 1): 2.1654339432686243e-10
+  pad v = 0.0                                                per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+                                                             what v does to an honest launch (row 1 vs weights 1): 4.896177629998277e-10
+  pad v = 1e+300                                             per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+                                                             what v does to an honest launch (row 1 vs weights 1): 0.22531607163040113
+  pad v = nan                                                per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+                                                             what v does to an honest launch (row 1 vs weights 1): 0.22531607163040113
+
+4. rivals: the replica path and the tangent layout without 2-D weights
+  no weights, max_directions_per_thread=1                    per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+  (n_vars,) ones, max_directions_per_thread=1                per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+  (N, n_vars) ones tiled, max_directions_per_thread=1        per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+  no weights, max_directions_per_thread=2                    per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+  (n_vars,) ones, max_directions_per_thread=2                per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+  (N, n_vars) ones tiled, max_directions_per_thread=2        per row |diff| / scale 2.4e-01: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+
+   values: jax.vmap(f) of single trajectories, N = 1
+  (1, n_vars) ones, unchanged    launch (given, n, returned) [((1, 3), 1, (1, 3)), ((1, 3), 4, (1, 3))]; per row |diff|: 0.00e+00  6.44e-08  7.97e-08  1.04e-07
+  (1, n_vars) ones, tiled        launch (given, n, returned) [((1, 3), 1, (1, 3)), ((1, 3), 4, (4, 3))]; per row |diff|: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+  (n_vars,) ones                 launch (given, n, returned) [((3,), 1, (1, 3)), ((3,), 4, (4, 3))]; per row |diff|: 0.00e+00  0.00e+00  0.00e+00  0.00e+00
+
+VERDICT: the prediction holds: right bitwise wherever the launch has n weight rows, and rows N.. padded with v give exactly the launch given v
+  the shipped call this run: rows after the first WRONG
+exit 0

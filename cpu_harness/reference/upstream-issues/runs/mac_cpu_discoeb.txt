@@ -1,0 +1,7 @@
+RUNTIME MONKEYPATCH: modax._jax_common.build_error_weights wrapped (logs; tiles only in the second run)
+device cpu:0
+loop:   launches (weights given, n, weights returned): [((8, 55), 8, (8, 55))]
+vmap, as shipped   : launches [((8, 55), 8, (8, 55)), ((8, 55), 24, (8, 55))]
+  per cosmology max |vmap - loop| / max |loop|: 6.40e-07  1.89e+51  8.47e+51
+vmap, weights tiled: launches [((8, 55), 8, (8, 55)), ((8, 55), 24, (24, 55))]
+  per cosmology max |vmap - loop| / max |loop|: 6.40e-07  1.87e-16  1.75e-16

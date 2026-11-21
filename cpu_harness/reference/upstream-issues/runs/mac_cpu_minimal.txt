@@ -1,0 +1,8 @@
+no error_weights             jacfwd: mapped vs one at a time, per row: 0.00e+00  0.00e+00  0.00e+00
+                             values: mapped vs one at a time, per row: 0.00e+00  0.00e+00  0.00e+00
+error_weights (n_vars,)      jacfwd: mapped vs one at a time, per row: 0.00e+00  0.00e+00  0.00e+00
+                             values: mapped vs one at a time, per row: 0.00e+00  0.00e+00  0.00e+00
+error_weights (1, n_vars)    jacfwd: mapped vs one at a time, per row: 0.00e+00  8.69e-01  1.00e+00
+                             values: mapped vs one at a time, per row: 0.00e+00  0.00e+00  0.00e+00
+modax /Users/samhewson/Documents/PhD/code/modax-0.5/modax/__init__.py
+exit 1
