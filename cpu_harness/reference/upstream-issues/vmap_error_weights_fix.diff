@@ -1,0 +1,30 @@
+--- a/modax/_numba_common.py
++++ b/modax/_numba_common.py
+@@ -202,14 +202,25 @@
+     """Broadcast a user ``error_weights`` argument to an ``(n, n_vars)`` array.
+ 
+     ``None`` gives all ones. A 1-D array of length ``n_vars`` applies to every
+-    trajectory, and a 2-D ``(n, n_vars)`` array passes through as it is. The
+-    kernel reads it per component as the weight in each error contribution.
++    trajectory, and a 2-D ``(n, n_vars)`` array passes through as it is. Under
++    ``jax.vmap`` the launch holds ``axis_size`` copies of the ``N`` trajectories
++    the weights were written for, in rows ``b * N + i``: an ``(N, n_vars)``
++    array is then repeated whole, so trajectory ``b * N + i`` reads row ``i``.
++    Any other row count raises. The kernel reads it per component as the
++    weight in each error contribution.
+     """
+     if error_weights is None:
+         return np.ones((n, n_vars), dtype=np.float64)
+     weights = np.asarray(error_weights, dtype=np.float64)
+     if weights.ndim == 1:
+         weights = np.broadcast_to(weights, (n, n_vars))
++    elif weights.shape[0] != n:
++        rows = weights.shape[0]
++        if rows == 0 or n % rows:
++            raise ValueError(
++                f"error_weights has {rows} rows, the launch {n} trajectories"
++            )
++        weights = np.tile(weights, (n // rows, 1))
+     return np.ascontiguousarray(weights, dtype=np.float64)
+ 
+ 

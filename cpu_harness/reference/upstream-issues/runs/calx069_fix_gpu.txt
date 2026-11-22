@@ -1,0 +1,34 @@
+calx069, RTX A400, 2026-11-22. Stock DISCO-EB 2.1.0 environment. "patched tree" is a copy of
+upstream v0.5.0's modax/ with vmap_error_weights_fix.diff applied, put first on PYTHONPATH.
+No monkeypatching. Scripts: vmap_error_weights_three_ways.py, vmap_error_weights_loud.py.
+
+=== A. stock wheel: DISCO-EB three ways
+modax /tmp/sh2099-eb21/DISCO-EB/.venv/lib/python3.13/site-packages/modax/__init__.py; device cuda:0
+per cosmology max |x - loop| / max |loop|
+  vmap(jacfwd):        7.74e-08  2.27e+20  3.35e+24
+  shared-shift jacfwd: 7.74e-08  0.00e+00  1.38e-07
+warm seconds: loop 2.159, vmap(jacfwd) 0.736, shared-shift 0.823
+=== B1. patched tree: row-count check
+/tmp/sh2099-eb21/mc/out/fixtree/modax/__init__.py
+(24, 3) (24, 3) (24, 3)       build_error_weights of (8, 3), (24, 3) and (3,) for n = 24
+raises: error_weights has 5 rows, the launch 24 trajectories
+=== B2. patched tree: modax-only reproducer
+
+(n_vars,) ones (control): per row max |diff| / scale (6.27e-02)
+  0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00
+  mean accepted steps, mapped: 128 128 128 128 128 129 129 129 129 129 129 130 130 130 130 130
+  mean accepted steps, alone:  128 128 128 128 128 129 129 129 129 129 129 130 130 130 130 130
+  rows differing: 0 of 16; non-finite rows: 0
+
+(N, n_vars) ones: per row max |diff| / scale (6.27e-02)
+  0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00 0.0e+00
+  mean accepted steps, mapped: 128 128 128 128 128 129 129 129 129 129 129 130 130 130 130 130
+  mean accepted steps, alone:  128 128 128 128 128 129 129 129 129 129 129 130 130 130 130 130
+  rows differing: 0 of 16; non-finite rows: 0
+exit 0
+=== B3. patched tree: DISCO-EB three ways
+modax /tmp/sh2099-eb21/mc/out/fixtree/modax/__init__.py; device cuda:0
+per cosmology max |x - loop| / max |loop|
+  vmap(jacfwd):        7.74e-08  0.00e+00  5.86e-06
+  shared-shift jacfwd: 7.74e-08  0.00e+00  1.38e-07
+warm seconds: loop 2.164, vmap(jacfwd) 0.811, shared-shift 0.823

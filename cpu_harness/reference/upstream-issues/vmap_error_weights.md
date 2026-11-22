@@ -170,3 +170,42 @@ Two parts, either of which stops the silent read:
    custom_vmap'd function.
 
 Not fixed on cpu-target-0.5, which is kept behaving as upstream does.
+
+## A fix, tested (2026-11-22)
+
+`vmap_error_weights_fix.diff`, against v0.5.0: `build_error_weights` repeats
+a 2-D array whose row count divides the launch's `n` until it has `n` rows
+(`np.tile`, so trajectory `b * N + i` reads row `i`, the order the vmap
+rules flatten in) and raises for any other row count. Not applied to
+cpu-target-0.5. It is the fix at the point the weights are built; tiling in
+the two vmap rules and raising here on any mismatch would be stricter (a
+wrong row count that divides `n` is tiled, not refused).
+
+On calx069's RTX A400, a copy of upstream v0.5.0 with the patch, no
+monkeypatching (`runs/calx069_fix_gpu.txt`):
+
+- `vmap_error_weights_loud.py`: all 16 mapped rows bitwise equal to the
+  calls one at a time, the same step counts, exit 0;
+- `vmap_error_weights_three_ways.py` (DISCO-EB 2.1.0, three cosmologies):
+  `vmap(jacfwd)` against the loop 7.7e-8, 0, 5.9e-6, where the stock wheel
+  gives 7.7e-8, 2.3e20, 3.4e24.
+
+On the CPU target with the patch, 128 cosmologies x 128 modes x 5
+parameters: `vmap(jacfwd)` within 7.8e-5 of the loop
+(`../stack-comparison/RESULTS.md`).
+
+## Without a fix: a batch in one launch
+
+`vmap_error_weights_three_ways.py` also takes the jacobians with no vmap:
+the batch goes to `solve_eb` as a list, each cosmology's parameters plus one
+shared shift, and `jax.jacfwd` is taken in the shift. The cosmologies are
+independent, so that is each one's own jacobian, in one launch whose weights
+have the right rows. On the stock wheel on the A400 it agrees with the loop
+to 1.4e-7 and takes 0.82 s against the loop's 2.16 s.
+
+modax's own suite on a copy of cpu-target-0.5 with the patch (CPU target,
+Enzyme): 260 passed, 5 skipped, 1 failed, the same as without it (the
+failure is the step-sequence test that fails on every stack). Not run on a
+GPU.
+
+Reported upstream on 2026-11-22: https://github.com/lawrenceberry/modax/issues/2
