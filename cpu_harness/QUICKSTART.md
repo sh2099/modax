@@ -1,4 +1,4 @@
-# Quick start: DISCO-EB on the CPU (Apple Silicon Mac)
+# Quick start: DISCO-EB on the CPU
 
 Two stacks, one launcher. Neither edits DISCO-EB.
 
@@ -7,7 +7,7 @@ Two stacks, one launcher. Neither edits DISCO-EB.
 | latest | v2.1.0 | `cpu-target-0.5` (modax 0.5.0 + CPU target) |
 | earlier | v2.0.1, with DISCO-CMB 0.1.0 | `cpu-target-0.3` (modax 0.3.0 + CPU target) |
 
-Needs: an Apple Silicon Mac, `git`, `uv`, `cmake` and the Xcode command-line
+On an Apple Silicon Mac (Linux is at the end). Needs: `git`, `uv`, `cmake` and the Xcode command-line
 tools. About 1 GB of disk once built (4.5 GB during the build) and about ten
 minutes.
 
@@ -64,8 +64,8 @@ The test suites:
 (cd DISCO-EB-2.0.1 && ../modax-0.5/cpu_harness/disco --modax 0.3 -m pytest tests -p no:cacheprovider --benchmark-disable)
 ```
 
-Expected on an M4 Pro: 138 passed and 1 skipped for 2.1.0, 74 passed for
-2.0.1.
+Expected on an M4 Pro: 124 passed and 1 skipped for 2.1.0 (138 with its
+slow tests, `-m slow`), 74 passed for 2.0.1.
 
 ## Know before use
 
@@ -79,10 +79,36 @@ Expected on an M4 Pro: 138 passed and 1 skipped for 2.1.0, 74 passed for
 - **`jax.grad` raises on 2.1.0**, as on a GPU: modax 0.5 is forward mode
   only.
 - **DISCO-CMB 0.1.0 does not run on DISCO-EB 2.1.0**, on any platform.
-- **Linux:** `build_enzyme_toolchain.sh` is for macOS. The 0.5 stack has
-  only been run on a Mac.
+- **DISCO-EB after v2.1.0:** `main` at `a7aeff0` (2026-11-20) runs too. On
+  the Mac one test of its suite fails, `test_recfast_matches_class[N128]`:
+  one cosmology's matter-temperature step straddles the RECFAST switch just
+  outside the window the test allows. It passes on Linux and on a GPU.
 - **Other layouts:** `MODAX_03`, `MODAX_05`, `DISCO_EB`, `DISCO_CMB`,
   `ENZYME_TOOLCHAIN` and `DISCO_PYTHON` override each location.
+
+## Linux (x86-64)
+
+No toolchain to build: `numba-enzyme-cuda`'s Linux wheel carries the LLVM 15
+tools and the Enzyme plugin, and modax finds them there. The wheel needs
+glibc 2.38 or newer (Ubuntu 24.04; not RHEL 9). Clone as above, then in
+place of `build_enzyme_toolchain.sh`:
+
+```bash
+uv venv --python 3.12 venv
+uv pip install --python venv/bin/python \
+    numba==0.61.2 llvmlite==0.44.0 numpy==2.2.6 jax==0.10.2 jaxlib==0.10.2 \
+    scipy==1.18.0 networkx==3.6.1 cvxopt==1.3.3 classy==3.3.4.0 \
+    pytest==9.1.1 pytest-benchmark==5.2.3 pytest-regressions==2.11.0
+uv pip install --python venv/bin/python --no-deps numba-enzyme-cuda==0.3.1
+export DISCO_PYTHON=$PWD/venv/bin/python
+```
+
+and run as above. `--no-deps` keeps the CUDA packages out, so modax takes
+the CPU target; beside a CUDA stack set `MODAX_TARGET=cpu`. Run on
+2026-11-25 on a 20-thread x86 desktop in an Ubuntu 24.04 sandbox, from this
+branch on GitHub: both examples give the Mac's numbers with Enzyme
+derivatives, and DISCO-EB 2.1.0's suite gives 124 passed, 1 skipped (its 14
+slow tests not run).
 
 `README.md` beside this file has the details: the two derivative engines,
 measured times, agreement with a GPU, and the check that the fork leaves
