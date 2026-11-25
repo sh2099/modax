@@ -1,5 +1,7 @@
 # DISCO-EB on modax's CPU target
 
+To set it up and run it from nothing, see [`QUICKSTART.md`](QUICKSTART.md).
+
 modax compiles its kernels for the CPU when numba-CUDA is not installed
 (`modax/_target.py`, `tests/test_cpu_target.py`). DISCO-EB also names
 `numba_cuda_mlir` in its own device code, so this directory holds what an
@@ -91,7 +93,8 @@ MODAX_CPU_DERIVATIVES=differences ../modax-0.5/cpu_harness/disco --modax 0.5 scr
   DISCO-EB 2.1 (`DISCO_EB` defaults to `DISCO-EB-2.1`). DISCO-CMB does not
   run on 2.1 and is on the path only when `DISCO_CMB` names it.
 - `--modax 0.3` (the default) and `0.4` run those branches' worktrees with
-  DISCO-EB 2.0.1 and DISCO-CMB, as cpu-target-0.3's launcher does.
+  DISCO-EB 2.0.1 (`DISCO-EB-2.0.1` where that exists, else
+  `DISCO-EB-lawrence`) and DISCO-CMB, as cpu-target-0.3's launcher does.
 - With 0.3 and 0.5 the interpreter is the toolchain's `venv/bin/python`
   where that exists, with `MODAX_ENZYME_TOOLS` set to the toolchain.
   Otherwise, and with 0.4, it is the numba 0.68 environment. `DISCO_PYTHON`

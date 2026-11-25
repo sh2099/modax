@@ -46,7 +46,10 @@ if [[ "$version" == 0.5 ]]; then
     eb="${DISCO_EB:-$code/DISCO-EB-2.1}"
     cmb="${DISCO_CMB:-}"
 else
-    eb="${DISCO_EB:-$code/DISCO-EB-lawrence}"
+    # a 2.0.1 checkout under either name
+    eb="$code/DISCO-EB-2.0.1"
+    [[ -d "$eb" ]] || eb="$code/DISCO-EB-lawrence"
+    eb="${DISCO_EB:-$eb}"
     cmb="${DISCO_CMB:-$code/DISCO-CMB}"
 fi
 toolchain="${ENZYME_TOOLCHAIN:-$code/enzyme-toolchain}"
